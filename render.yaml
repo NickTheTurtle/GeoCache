@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: geocache-sf
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: node server.js
+    envVars:
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: geocache-data
+      mountPath: /var/data
+      sizeGB: 1

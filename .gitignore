@@ -1,0 +1,21 @@
+node_modules/
+data/
+certs/
+*.log
+.env
+
+# Editors / IDEs
+.vs/
+.idea/
+.DS_Store
+
+.svelte-kit/
+build/
+
+# Playwright / E2E
+e2e/.data/
+e2e/.fixture.json
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
