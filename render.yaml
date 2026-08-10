@@ -2,7 +2,8 @@ services:
   - type: web
     name: geocache-sf
     runtime: node
-    plan: free
+    # Persistent disks require a paid instance type on Render; "free" is invalid with a disk.
+    plan: starter
     buildCommand: npm install && npm run build
     startCommand: node server.js
     envVars:
