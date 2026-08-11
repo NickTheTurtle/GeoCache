@@ -435,7 +435,7 @@
     <span class="tagline">Chart the zones · Mint the QR codes</span>
   </div>
   <div class="spacer"></div>
-  <a href="/"><button class="secondary">View map</button></a>
+  <a href="/"><button class="secondary">Map</button></a>
 </div>
 
 {#if !loggedIn}
