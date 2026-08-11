@@ -121,6 +121,40 @@ export function deleteZone(id) {
   return db.prepare('DELETE FROM zones WHERE id = ?').run(id);
 }
 
+// ---------- Bulk import / export ----------
+// Dump every zone in the portable shape the import endpoint accepts: name,
+// hint, polygon, and (when present) the hint image as a base64 data URL. This
+// makes an export a complete, re-importable backup. Secrets are intentionally
+// omitted — fresh ones are minted on import so QR codes never collide.
+export function exportZones() {
+  const rows = db
+    .prepare('SELECT name, hint, polygon, image, image_type FROM zones ORDER BY id')
+    .all();
+  return rows.map((r) => {
+    const zone = { name: r.name, hint: r.hint, polygon: JSON.parse(r.polygon) };
+    if (r.image && r.image_type) {
+      zone.imageData = `data:${r.image_type};base64,${Buffer.from(r.image).toString('base64')}`;
+    }
+    return zone;
+  });
+}
+
+// Insert many pre-validated zones in a single transaction (all-or-nothing).
+// When replace is true, existing zones (and their claims, via cascade) are
+// cleared first. Each entry: { name, hint, polygon, image?, imageType? }.
+export function importZones(zones, { replace = false } = {}) {
+  db.exec('BEGIN');
+  try {
+    if (replace) db.exec('DELETE FROM zones');
+    for (const z of zones) createZone(z);
+    db.exec('COMMIT');
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+  return zones.length;
+}
+
 // Strip the binary image columns from a raw zone row and parse its polygon,
 // giving the JSON shape the admin API returns for a single zone.
 export function zonePublic(zone) {

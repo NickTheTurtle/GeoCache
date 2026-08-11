@@ -1,0 +1,24 @@
+{
+  "zones": [
+    {
+      "name": "Golden Gate Park — Windmill",
+      "hint": "Look near the bench facing the **Dutch windmill** at the park's western edge.",
+      "polygon": [
+        [37.7699, -122.5108],
+        [37.7712, -122.5108],
+        [37.7712, -122.5090],
+        [37.7699, -122.5090]
+      ]
+    },
+    {
+      "name": "Coit Tower Lookout",
+      "hint": "Somewhere along the railing with the _best_ bay view.",
+      "polygon": [
+        [37.8021, -122.4065],
+        [37.8028, -122.4065],
+        [37.8028, -122.4055],
+        [37.8021, -122.4055]
+      ]
+    }
+  ]
+}

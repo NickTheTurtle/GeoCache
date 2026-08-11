@@ -31,6 +31,12 @@
   let grpName = $state('');
   let grpErr = $state('');
 
+  // Import / export zones
+  let importReplace = $state(false);
+  let importErr = $state('');
+  let importInput = $state();
+  let importing = $state(false);
+
   // Modals
   let resetOpen = $state(false);
   let confirmOpen = $state(false);
@@ -317,6 +323,57 @@
     if (zImgInput) zImgInput.value = '';
   }
 
+  // ---------- Import / export zones ----------
+  const exportUrl = () => `/api/admin/zones/export?t=${encodeURIComponent(imgToken)}`;
+
+  async function onZonesFilePick(e) {
+    importErr = '';
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    let parsed;
+    try {
+      parsed = JSON.parse(await file.text());
+    } catch {
+      importErr = 'That file is not valid JSON.';
+      if (importInput) importInput.value = '';
+      return;
+    }
+    const list = Array.isArray(parsed) ? parsed : parsed?.zones;
+    if (!Array.isArray(list) || list.length === 0) {
+      importErr = 'No zones found in that file.';
+      if (importInput) importInput.value = '';
+      return;
+    }
+
+    const n = list.length;
+    const ok = await customConfirm({
+      title: importReplace ? 'Replace all zones' : 'Import zones',
+      message: importReplace
+        ? `This deletes every existing zone (and its claims), then imports ${n} zone${n === 1 ? '' : 's'}. Continue?`
+        : `Add ${n} zone${n === 1 ? '' : 's'} to the game?`,
+      okLabel: importReplace ? 'Replace all' : 'Import',
+    });
+    if (!ok) { if (importInput) importInput.value = ''; return; }
+
+    importing = true;
+    try {
+      const res = await fetch('/api/admin/zones/import', {
+        method: 'POST',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ zones: list, replace: importReplace }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { importErr = data.error || data.message || 'Import failed.'; return; }
+      toast(`Imported ${data.imported} zone${data.imported === 1 ? '' : 's'}`);
+      if (map) { map.setView(SF_CENTER, 12); }
+      loadZones();
+    } finally {
+      importing = false;
+      if (importInput) importInput.value = '';
+    }
+  }
+
   // ---------- Reset + confirm modals ----------
   function customConfirm({ title = 'Confirm', message = '', okLabel = 'Delete' }) {
     return new Promise((resolve) => {
@@ -421,6 +478,23 @@
           <button onclick={saveZone}>Save zone</button>
         </div>
         <div class="err">{formErr}</div>
+      </div>
+
+      <div class="card">
+        <h2>Import / export zones</h2>
+        <p class="muted">Bulk-load zones from a JSON file (great for AI-generated maps), or download the current set as a backup.</p>
+        <label class="checkbox-row">
+          <input type="checkbox" bind:checked={importReplace} />
+          <span>Replace existing zones (deletes current zones &amp; claims first)</span>
+        </label>
+        <label for="zonesFile">Zones file (.json)</label>
+        <input id="zonesFile" type="file" accept="application/json,.json" bind:this={importInput} onchange={onZonesFilePick} disabled={importing} />
+        <div class="form-actions" style="margin-top:10px">
+          <a href={exportUrl()} download>
+            <button class="secondary" type="button">Export zones</button>
+          </a>
+        </div>
+        <div class="err">{importErr}</div>
       </div>
 
       <div class="card">

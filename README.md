@@ -81,6 +81,49 @@ so the server serves the current UI.
 3. When a group finds an object, they scan its QR code → the claim page opens →
    they tap **Claim** and score a point.
 
+## Bulk zones: import / export
+
+Instead of drawing every zone by hand, the admin console can **import a JSON
+file of zones** (Admin → *Import / export zones*). This is handy for generating a
+whole map at once (e.g. with an AI assistant) and uploading it when you're happy.
+
+- **Export** downloads the current zones as `geocache-zones.json` — a complete,
+  re-importable backup (hint images are included as base64 data URLs).
+- **Import** loads a file. Tick **Replace existing zones** to swap the whole map
+  (clears current zones and their claims first); leave it unticked to append.
+- Fresh QR secrets are minted on import, so codes never collide. Each zone's
+  polygon must have **3+ points inside the San Francisco bounds**, or the whole
+  import is rejected (it's all-or-nothing).
+
+File format (see [`zones.example.json`](./zones.example.json)):
+
+```json
+{
+  "zones": [
+    {
+      "name": "Golden Gate Park — Windmill",
+      "hint": "Look near the bench facing the **Dutch windmill**.",
+      "polygon": [[37.7699, -122.5108], [37.7712, -122.5108], [37.7712, -122.5090]],
+      "imageData": "data:image/png;base64,…  (optional hint image)"
+    }
+  ]
+}
+```
+
+- `polygon` is an array of `[lat, lng]` pairs (3+), all within SF.
+- `hint` supports the same markdown as the editor (`**bold**`, `_italic_`).
+- `imageData` is optional; omit it or use the per-zone editor to attach images.
+- A bare top-level array (`[ {…}, {…} ]`) is also accepted.
+
+You can import via the admin page, or on the server over SSH:
+
+```bash
+curl -X POST https://<your-domain>/api/admin/zones/import \
+  -H "x-admin-password: $ADMIN_PASSWORD" \
+  -H "Content-Type: application/json" \
+  --data @zones.json
+```
+
 ## Environment variables
 
 | Variable         | Default            | Purpose                                          |

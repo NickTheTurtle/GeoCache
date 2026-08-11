@@ -621,6 +621,13 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 .form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .form-actions button { flex: 0 0 auto; }
 
+/* Inline checkbox + label row (e.g. the zone-import "Replace" toggle) */
+.checkbox-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 4px 0 12px; font-size: 13px; color: var(--ink); cursor: pointer;
+}
+.checkbox-row input { width: auto; margin: 2px 0 0; flex: 0 0 auto; }
+
 /* Manual-claim controls in the admin zones list */
 .claim-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
 .claim-chip {

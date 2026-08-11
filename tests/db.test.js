@@ -118,6 +118,58 @@ test('deleteZone removes the zone and its claims', () => {
   assert.equal(db.leaderboard().find((r) => r.id === g.id).points, 0); // claim gone too
 });
 
+test('exportZones / importZones round-trips zones and mints fresh secrets', () => {
+  db.resetGame({ keepZones: false });
+  const a = db.createZone({ name: 'Exp A', hint: 'hint a', polygon: POLY });
+  db.createZone({ name: 'Exp B', hint: '', polygon: POLY });
+
+  const dump = db.exportZones();
+  assert.equal(dump.length, 2);
+  assert.deepEqual(dump[0], { name: 'Exp A', hint: 'hint a', polygon: POLY }); // no secret leaked
+  assert.equal('secret' in dump[0], false);
+
+  // Re-import with replace: old zones cleared, new ones created with new secrets.
+  const oldSecret = db.getZoneById(a.id).secret;
+  const count = db.importZones(
+    dump.map((z) => ({ ...z, polygon: z.polygon })),
+    { replace: true }
+  );
+  assert.equal(count, 2);
+  const after = db.listZonesAdmin();
+  assert.equal(after.length, 2);
+  assert.deepEqual(after.map((z) => z.name).sort(), ['Exp A', 'Exp B']);
+  assert.equal(db.getZoneById(a.id), undefined); // old row replaced
+  assert.equal(db.getZoneBySecret(oldSecret), undefined); // fresh secret minted
+});
+
+test('importZones without replace appends to existing zones', () => {
+  db.resetGame({ keepZones: false });
+  db.createZone({ name: 'Keep', hint: '', polygon: POLY });
+  db.importZones([{ name: 'Added', hint: '', polygon: POLY }], { replace: false });
+  assert.deepEqual(db.listZonesAdmin().map((z) => z.name).sort(), ['Added', 'Keep']);
+});
+
+test('importZones is atomic: a bad zone rolls back the whole batch', () => {
+  db.resetGame({ keepZones: false });
+  db.createZone({ name: 'Survivor', hint: '', polygon: POLY });
+  // Second zone has an invalid polygon (not JSON-stringifiable cleanly is fine,
+  // but a null polygon makes JSON.stringify store 'null' — force a throw by
+  // passing a value that breaks the insert path). Use a circular reference.
+  const bad = {};
+  bad.self = bad;
+  assert.throws(() =>
+    db.importZones(
+      [
+        { name: 'Ok', hint: '', polygon: POLY },
+        { name: 'Bad', hint: '', polygon: bad },
+      ],
+      { replace: true }
+    )
+  );
+  // Replace should have rolled back, leaving the original zone intact.
+  assert.deepEqual(db.listZonesAdmin().map((z) => z.name), ['Survivor']);
+});
+
 test('foreign keys are enforced: claiming a non-existent zone throws', () => {
   const g = db.createGroup('FKGroup');
   assert.throws(() => db.claimZone(9999999, g.id));
