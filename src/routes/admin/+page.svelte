@@ -458,7 +458,6 @@
           {/if}
           <span>{editingId ? `Edit: ${zName}` : 'New zone'}</span>
         </h2>
-        <p class="muted">Click the map to add points · drag any point to reshape.</p>
         <label for="zName">Zone name</label>
         <input id="zName" placeholder="Golden Gate Park West" maxlength="60" bind:value={zName} />
         <label for="zHint">Hint</label>
@@ -481,20 +480,23 @@
       </div>
 
       <div class="card">
-        <h2>Import / export zones</h2>
-        <p class="muted">Bulk-load zones from a JSON file (great for AI-generated maps), or download the current set as a backup.</p>
+        <h2>Import zones</h2>
         <label class="checkbox-row">
           <input type="checkbox" bind:checked={importReplace} />
-          <span>Replace existing zones (deletes current zones &amp; claims first)</span>
+          <span>Replace existing zones</span>
         </label>
         <label for="zonesFile">Zones file (.json)</label>
         <input id="zonesFile" type="file" accept="application/json,.json" bind:this={importInput} onchange={onZonesFilePick} disabled={importing} />
-        <div class="form-actions" style="margin-top:10px">
+        <div class="err">{importErr}</div>
+      </div>
+
+      <div class="card">
+        <h2>Export zones</h2>
+        <div class="form-actions">
           <a href={exportUrl()} download>
             <button class="secondary" type="button">Export zones</button>
           </a>
         </div>
-        <div class="err">{importErr}</div>
       </div>
 
       <div class="card">

@@ -51,8 +51,8 @@ test.describe('Admin console', () => {
     await page.goto('/admin');
     await page.locator('#pw').fill(fx.admin);
     await page.getByRole('button', { name: 'Log in' }).click();
-    await expect(page.locator('h2', { hasText: 'Import / export zones' })).toBeVisible();
-    await expectLegible(page.locator('h2', { hasText: 'Import / export zones' }));
+    await expect(page.locator('h2', { hasText: 'Import zones' })).toBeVisible();
+    await expectLegible(page.locator('h2', { hasText: 'Import zones' }));
 
     const stamp = Date.now();
     const zoneName = `Imported Zone ${stamp}`;
@@ -86,7 +86,7 @@ test.describe('Admin console', () => {
     await page.goto('/admin');
     await page.locator('#pw').fill(fx.admin);
     await page.getByRole('button', { name: 'Log in' }).click();
-    await expect(page.locator('h2', { hasText: 'Import / export zones' })).toBeVisible();
+    await expect(page.locator('h2', { hasText: 'Export zones' })).toBeVisible();
     // The export link is authed with the signed image token, which is fetched
     // asynchronously after login. Wait for a token-dependent QR thumbnail to
     // appear so we don't click Export before the token is ready.

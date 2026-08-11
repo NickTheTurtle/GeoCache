@@ -122,10 +122,8 @@ export function deleteZone(id) {
 }
 
 // ---------- Bulk import / export ----------
-// Dump every zone in the portable shape the import endpoint accepts: name,
-// hint, polygon, and (when present) the hint image as a base64 data URL. This
-// makes an export a complete, re-importable backup. Secrets are intentionally
-// omitted — fresh ones are minted on import so QR codes never collide.
+// Export every zone in the portable, re-importable shape the import endpoint
+// accepts. Secrets are omitted — fresh ones are minted on import.
 export function exportZones() {
   const rows = db
     .prepare('SELECT name, hint, polygon, image, image_type FROM zones ORDER BY id')
@@ -139,9 +137,8 @@ export function exportZones() {
   });
 }
 
-// Insert many pre-validated zones in a single transaction (all-or-nothing).
-// When replace is true, existing zones (and their claims, via cascade) are
-// cleared first. Each entry: { name, hint, polygon, image?, imageType? }.
+// Insert pre-validated zones in one transaction (all-or-nothing). When replace
+// is true, existing zones (and their claims, via cascade) are cleared first.
 export function importZones(zones, { replace = false } = {}) {
   db.exec('BEGIN');
   try {

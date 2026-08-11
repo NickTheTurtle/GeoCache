@@ -1,9 +1,8 @@
 import * as db from '$lib/server/db.js';
 import { requireAdmin } from '$lib/server/config.js';
 
-// Download every zone as a re-importable JSON file. Auth works via the
-// x-admin-password header or a signed ?t= token, so a plain <a download> link
-// (which can't set headers) can trigger the download.
+// Download every zone as a re-importable JSON file. Token-authed (?t=) so a
+// plain <a download> link works.
 export function GET({ request, url }) {
   requireAdmin(request, url);
   const body = JSON.stringify({ zones: db.exportZones() }, null, 2);

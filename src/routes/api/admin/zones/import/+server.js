@@ -2,9 +2,9 @@ import { json, error } from '@sveltejs/kit';
 import * as db from '$lib/server/db.js';
 import { requireAdmin, validPolygon, decodeImage } from '$lib/server/config.js';
 
-// Bulk-import zones from a JSON file. Accepts either a bare array of zones or
-// an object { zones: [...], replace: bool }. Every zone is validated up front
-// so the import is all-or-nothing (db.importZones runs in a transaction).
+// Bulk-import zones from a JSON file: a bare array of zones, or
+// { zones: [...], replace: bool }. Validated up front so the import is
+// all-or-nothing (db.importZones runs in a transaction).
 export async function POST({ request, url }) {
   requireAdmin(request, url);
 
@@ -24,8 +24,8 @@ export async function POST({ request, url }) {
     if (!validPolygon(z?.polygon)) {
       throw error(400, `${label}: polygon must have 3+ points inside San Francisco`);
     }
-    // Only a base64 data URL in `imageData` is treated as an image. The `image`
-    // field from an export is a URL path, so it is ignored here.
+    // Only imageData (a base64 data URL) is an image; the export's `image` URL
+    // field is ignored.
     const img = decodeImage(z?.imageData);
     return { name, hint, polygon: z.polygon, image: img?.image, imageType: img?.imageType };
   });

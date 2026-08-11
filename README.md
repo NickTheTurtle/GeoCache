@@ -1,101 +1,73 @@
 # 🧭 GeoCache SF
 
-A simple GeoCaching game for you and your friends, bounded to San Francisco.
-Admins draw zones on a map, hide a physical object with a QR code in each zone,
-and groups race to find objects and scan the QR codes to claim zones and score points.
+A GeoCaching game for you and your friends, bounded to San Francisco. Admins
+draw zones on a map and hide a QR-coded object in each; groups race to find the
+objects, scan the codes, and score points.
 
 ## Features
 
-- **Simple registration** — each group creates itself in one click and gets a
-  personal link (`/?g=<token>`). Bookmark it; that link identifies your group so
-  scans claim zones for you.
-- **SF map** (Leaflet + OpenStreetMap) showing every zone as a boundary. Click a
-  zone to zoom in and read its hint.
-- **QR claiming** — every zone has a unique QR code that links to a claim page.
-  The first group to scan it claims the zone (+1 point). Zones turn amber once
-  claimed.
-- **Leaderboard** — live ranking of every group by points.
-- **Admin page** — draw/edit zones on the map, write hints, and generate &
-  download a QR code per zone.
+- **One-click registration** — each group gets a personal link (`/?g=<token>`)
+  that identifies them so scans claim zones for them.
+- **SF map** (Leaflet + OpenStreetMap) — every zone is a boundary; click to zoom
+  in and read its hint.
+- **QR claiming** — each zone has a unique QR code; scanning claims it (+1 point).
+- **Leaderboard** — live ranking by points.
+- **Admin page** — draw/edit zones, write hints, bulk import/export, and
+  generate a QR code per zone.
 
 ## Run locally
 
 ```bash
 npm install
 npm run build
-# optional: set an admin password (defaults to "changeme")
-# PowerShell:  $env:ADMIN_PASSWORD="s3cret"
-npm start
+$env:ADMIN_PASSWORD="s3cret"   # optional; defaults to "changeme"
+npm start                       # runs server.js, opens on http://localhost:3000
 ```
 
-`npm start` runs `server.js`, a small launcher around the SvelteKit
-(adapter-node) build. Then open http://localhost:3000 (admin at
-http://localhost:3000/admin).
+Admin is at `/admin`. For hot-reload dev use `npm run dev` (port 5173) — but the
+QR camera scanner needs a secure context, so it only works from `npm start` or
+localhost, not the dev server over the LAN.
 
-For rapid development use `npm run dev` (Vite dev server with hot reload) and
-open http://localhost:5173. Note: the in-app QR scanner needs a secure context,
-so camera scanning only works from the built server over HTTPS or from
-localhost, not the Vite dev server over the LAN.
+Requires **Node.js ≥ 22.5** (uses built-in `node:sqlite` — no external database).
 
 ### HTTPS on your LAN (for phones)
 
-Phones need HTTPS to use the camera. Run `npm run gen-cert` once (needs OpenSSL,
-included with Git for Windows) to create a self-signed cert in `certs/`. After
-that, `npm start` serves HTTPS on port 443 (and `PORT`), with plain HTTP on 80
-redirecting to HTTPS. Generate QR codes after this so they point at your
-machine's LAN IP over HTTPS.
-
-Requires **Node.js ≥ 22.5** (uses the built-in `node:sqlite` module: no native
-build step, no external database).
+Phones need HTTPS for the camera. Run `npm run gen-cert` once (needs OpenSSL,
+bundled with Git for Windows) to create a self-signed cert in `certs/`. After
+that, `npm start` serves HTTPS on 443 (and `PORT`) with HTTP→HTTPS redirect on
+80. Generate QR codes afterward so they point at your LAN IP over HTTPS.
 
 ## Testing
 
 ```bash
-npm test          # fast unit tests (node:test) for db/config/util helpers
-npm run test:e2e  # end-to-end UI tests (Playwright) — build first
+npm test          # unit tests (node:test) for db/config/util
+npm run test:e2e  # Playwright UI tests — run `npm run build` first
 ```
 
-Unit tests live in `tests/` and run with the built-in Node test runner.
-
-End-to-end tests live in `e2e/` and use [Playwright](https://playwright.dev)
-driving the locally-installed **Microsoft Edge** (`channel: 'msedge'`, so no
-browser download is needed). `playwright.config.js` boots an isolated instance
-of the production server on ports **8443/8080** with its own throwaway
-`DATA_DIR` (`e2e/.data`) and a fixed admin password, so E2E never touches your
-real game data and can run alongside a dev server. `e2e/global-setup.js` seeds
-crews and zones via the API before the suite runs.
-
-The suite covers the main map, the QR-link claim modal (all states + edge
-cases), old `/claim` redirects, the admin console, and mobile layout. It also
-asserts real **text legibility** (compositing translucent backgrounds to catch
-invisible / low-contrast text). Run `npm run build` before `npm run test:e2e`
-so the server serves the current UI.
+E2E tests (`e2e/`) drive locally-installed Microsoft Edge (no browser download)
+against an isolated server on ports 8443/8080 with its own throwaway `DATA_DIR`,
+so they never touch real game data. They cover the map, claim modal, admin
+console, and mobile layout, and assert text legibility (contrast).
 
 ## How to play
 
-1. **Admin** opens `/admin`, logs in, and for each hidden object:
-   - clicks points on the map to draw the zone boundary,
-   - adds a name and a hint,
-   - saves, then **Download QR** and prints/attaches it to the physical object.
+1. **Admin** (`/admin`) draws each zone, adds a hint, saves, then **Download QR**
+   and attaches it to the physical object.
 2. **Players** open the site, create their group, and keep their personal link.
-3. When a group finds an object, they scan its QR code → the claim page opens →
-   they tap **Claim** and score a point.
+3. On finding an object, a group scans its QR code and taps **Claim** for a point.
 
 ## Bulk zones: import / export
 
-Instead of drawing every zone by hand, the admin console can **import a JSON
-file of zones** (Admin → *Import / export zones*). This is handy for generating a
-whole map at once (e.g. with an AI assistant) and uploading it when you're happy.
+The admin console can import/export zones as JSON — handy for generating a whole
+map at once (e.g. with an AI assistant).
 
-- **Export** downloads the current zones as `geocache-zones.json` — a complete,
-  re-importable backup (hint images are included as base64 data URLs).
-- **Import** loads a file. Tick **Replace existing zones** to swap the whole map
-  (clears current zones and their claims first); leave it unticked to append.
-- Fresh QR secrets are minted on import, so codes never collide. Each zone's
-  polygon must have **3+ points inside the San Francisco bounds**, or the whole
-  import is rejected (it's all-or-nothing).
+- **Export** downloads `geocache-zones.json` (a re-importable backup; hint images
+  included as base64).
+- **Import** loads a file. Tick **Replace existing zones** to swap the whole map;
+  leave it unticked to append. Fresh QR secrets are minted, and each polygon must
+  have 3+ points inside SF or the whole import is rejected.
 
-File format (see [`zones.example.json`](./zones.example.json)):
+Format (see [`zones.example.json`](./zones.example.json)):
 
 ```json
 {
@@ -104,77 +76,61 @@ File format (see [`zones.example.json`](./zones.example.json)):
       "name": "Golden Gate Park — Windmill",
       "hint": "Look near the bench facing the **Dutch windmill**.",
       "polygon": [[37.7699, -122.5108], [37.7712, -122.5108], [37.7712, -122.5090]],
-      "imageData": "data:image/png;base64,…  (optional hint image)"
+      "imageData": "data:image/png;base64,…  (optional)"
     }
   ]
 }
 ```
 
-- `polygon` is an array of `[lat, lng]` pairs (3+), all within SF.
-- `hint` supports the same markdown as the editor (`**bold**`, `_italic_`).
-- `imageData` is optional; omit it or use the per-zone editor to attach images.
-- A bare top-level array (`[ {…}, {…} ]`) is also accepted.
-
-You can import via the admin page, or on the server over SSH:
+`hint` supports markdown (`**bold**`, `_italic_`). A bare top-level array is also
+accepted. To import over SSH:
 
 ```bash
 curl -X POST https://<your-domain>/api/admin/zones/import \
-  -H "x-admin-password: $ADMIN_PASSWORD" \
-  -H "Content-Type: application/json" \
+  -H "x-admin-password: $ADMIN_PASSWORD" -H "Content-Type: application/json" \
   --data @zones.json
 ```
 
 ## Environment variables
 
-| Variable         | Default            | Purpose                                          |
-| ---------------- | ------------------ | ------------------------------------------------ |
-| `PORT`           | `3000`             | Port the server listens on.                      |
-| `ADMIN_PASSWORD` | `changeme`         | Password for the admin page. **Change this.**    |
-| `DATA_DIR`       | `./data`           | Directory for the SQLite database file.          |
+| Variable          | Default    | Purpose                                 |
+| ----------------- | ---------- | --------------------------------------- |
+| `PORT`            | `3000`     | Port the server listens on.             |
+| `ADMIN_PASSWORD`  | `changeme` | Admin page password. **Change this.**   |
+| `DATA_DIR`        | `./data`   | Directory for the SQLite database file. |
+| `PUBLIC_BASE_URL` | —          | Public URL encoded in QR codes.         |
 
-## Deploying to a cloud host
+## Deploying
 
-The app is a standard Node web service. It needs **persistent disk** for the
-SQLite database (`DATA_DIR`), so pick a host/plan that offers one.
+The app is a standard Node service that needs **persistent disk** for the SQLite
+database — so serverless hosts (Amplify, Lambda) won't work.
 
-### Render (config included)
+- **AWS EC2** (recommended): see [`deploy/README.md`](./deploy/README.md) for a
+  one-command setup script (Node + Caddy + auto-HTTPS).
+- **Render**: a `render.yaml` blueprint is included (needs a paid plan for the
+  disk).
+- **Others** (Railway, Fly.io): start command `node server.js`, attach a volume,
+  point `DATA_DIR` at it, and set `ADMIN_PASSWORD`.
 
-A `render.yaml` blueprint is provided. Push this repo to GitHub, create a new
-**Blueprint** on Render pointing at it, then set `ADMIN_PASSWORD` when prompted.
-It provisions a 1 GB disk mounted at `/var/data`.
-
-### Railway / Fly.io / others
-
-- Start command: `node server.js`
-- Attach a volume and point `DATA_DIR` at its mount path (e.g. `/data`).
-- Set `ADMIN_PASSWORD`.
-- The host sets `PORT` automatically; the server honors it.
-
-> ⚠️ Once deployed, generate QR codes from the **deployed** URL (do it in the
-> admin page on the live site) so phones scanning them reach the public server.
+> ⚠️ Generate QR codes from the **deployed** URL so phones reach the public server.
 
 ## Project structure
 
 ```
 server.js                 HTTPS/HTTP launcher wrapping the adapter-node build
-svelte.config.js          SvelteKit config (adapter-node)
-vite.config.js            Vite config
 scripts/gen-cert.js       Generates a self-signed TLS cert for LAN HTTPS
+deploy/                   EC2 setup + update scripts
 src/
-  app.html                HTML shell
   app.css                 Shared styles
   lib/
     server/db.js          SQLite schema and queries (node:sqlite)
     server/config.js      Admin auth, SF bounds, QR URL helpers
-    mapstyle.js           MapLibre vector map style
     leaflet.js            Client-only Leaflet + MapLibre loader
-    crew.js               Current-crew store (localStorage)
     util.js               Shared client helpers (zone styling, QR parsing)
   routes/
-    +page.svelte          Main map, registration, leaderboard, scanner
-    claim/+page.svelte    QR landing page that claims a zone
-    admin/+page.svelte    Zone drawing + QR generation
-    api/                  SvelteKit server endpoints (REST API)
+    +page.svelte          Main map, registration, leaderboard, scanner, claim
+    claim/+page.js        Redirects old /claim?c= links to the main-page modal
+    admin/+page.svelte    Zone drawing, import/export, QR generation
+    api/                  SvelteKit server endpoints
 render.yaml               Render deployment blueprint
-Procfile                  Generic process definition
 ```
