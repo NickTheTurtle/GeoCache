@@ -78,3 +78,31 @@ test('renderHint escapes delimiters with a backslash', () => {
   assert.equal(renderHint('snake_case value'), 'snake_case value');
 });
 
+test('renderHint renders safe [label](url) links', () => {
+  assert.equal(
+    renderHint('See [the map](https://sfgov.org/map)'),
+    'See <a href="https://sfgov.org/map" target="_blank" rel="noopener noreferrer">the map</a>'
+  );
+  assert.equal(
+    renderHint('Email [us](mailto:hi@example.com)'),
+    'Email <a href="mailto:hi@example.com" target="_blank" rel="noopener noreferrer">us</a>'
+  );
+  // URLs may contain _ and * without triggering emphasis.
+  assert.equal(
+    renderHint('*[go](https://x.com/a_b)*'),
+    '<em><a href="https://x.com/a_b" target="_blank" rel="noopener noreferrer">go</a></em>'
+  );
+  // Ampersands in the URL stay HTML-escaped in the href.
+  assert.equal(
+    renderHint('[x](https://x.com/a?b=1&c=2)'),
+    '<a href="https://x.com/a?b=1&amp;c=2" target="_blank" rel="noopener noreferrer">x</a>'
+  );
+});
+
+test('renderHint rejects unsafe link URLs (XSS-safe)', () => {
+  // Only http(s)/mailto are allowed; everything else stays literal, no anchor.
+  assert.equal(renderHint('[x](javascript:alert(1))'), '[x](javascript:alert(1))');
+  assert.equal(renderHint('[x](data:text/html,<b>)'), '[x](data:text/html,&lt;b&gt;)');
+  assert.equal(renderHint('[x](/local/path)'), '[x](/local/path)');
+});
+

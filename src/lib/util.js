@@ -4,22 +4,42 @@ export function escapeHtml(s) {
   );
 }
 
-// Render a hint with limited, safe Markdown (bold + italic only). The text is
-// HTML-escaped FIRST so raw hint content can never inject markup, then the
-// bold/italic delimiters (**/__ = bold, */_ = italic) are matched into
-// <strong>/<em>. Newlines are left as-is (.popup-hint CSS uses white-space:
-// pre-wrap). Escape a delimiter with a backslash to keep it literal: "\*" -> *
-// and "\_" -> _ (handy for fill-in blanks like "\_ \_ \_" or "3 \* 4").
+// Render a hint with limited, safe Markdown. The text is HTML-escaped FIRST so
+// raw hint content can never inject markup, then a small set of inline features
+// is rendered:
+//   - **bold** / __bold__  ->  <strong>
+//   - *italic* / _italic_  ->  <em>
+//   - [label](url)         ->  <a> (http/https/mailto only, opens in a new tab)
+// Newlines are left as-is (.popup-hint CSS uses white-space: pre-wrap). Escape a
+// delimiter with a backslash to keep it literal: "\*" -> * and "\_" -> _ (handy
+// for fill-in blanks like "\_ \_ \_" or "3 \* 4").
 //
 // A delimiter-stack parser (rather than sequential regex replacement) keeps the
 // output well-formed: emphasis is always properly nested, and unbalanced or
 // mid-word delimiters degrade to literal text instead of leaking stray markup.
 const STAR = '\uE000';
 const UNDER = '\uE001';
+const LINK_OPEN = '\uE002';
+const LINK_CLOSE = '\uE003';
 const isWordChar = (ch) => ch !== undefined && /[A-Za-z0-9]/.test(ch);
 
+// Accept only http(s)/mailto links so a hint can't inject javascript:/data: URLs.
+// `url` is already HTML-escaped, so quotes/angle brackets can't break the href.
+function safeUrl(url) {
+  return /^(https?:\/\/|mailto:)/i.test(url) ? url : null;
+}
+
 export function renderHint(s) {
+  const links = [];
   const text = escapeHtml(s == null ? '' : s)
+    // Pull [label](url) links out first (as placeholders) so URLs aren't touched
+    // by emphasis parsing; unsafe or malformed links stay literal.
+    .replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (m, label, url) => {
+      const href = safeUrl(url);
+      if (!href) return m;
+      links.push(`<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`);
+      return `${LINK_OPEN}${links.length - 1}${LINK_CLOSE}`;
+    })
     // Set escaped delimiters aside as private-use placeholders so they are never
     // parsed as markdown; restored as literals at the end.
     .replace(/\\([*_])/g, (_, ch) => (ch === '*' ? STAR : UNDER));
@@ -55,7 +75,10 @@ export function renderHint(s) {
 
   let out = '';
   for (const n of nodes) out += n.text ?? n.ch.repeat(n.count);
-  return out.split(STAR).join('*').split(UNDER).join('_');
+  return out
+    .split(STAR).join('*')
+    .split(UNDER).join('_')
+    .replace(new RegExp(`${LINK_OPEN}(\\d+)${LINK_CLOSE}`, 'g'), (_, i) => links[i]);
 }
 
 // Pair delimiter runs into <strong>/<em>, closest-opener first. Consumes two

@@ -82,9 +82,9 @@ Format (see [`zones.example.json`](./zones.example.json)):
 }
 ```
 
-`hint` supports markdown (`**bold**`, `_italic_`); escape a delimiter with a
-backslash to keep it literal (`\*`, `\_`). A bare top-level array is also
-accepted. To import over SSH:
+`hint` supports markdown (`**bold**`, `_italic_`, `[label](https://…)` links);
+escape a delimiter with a backslash to keep it literal (`\*`, `\_`). A bare
+top-level array is also accepted. To import over SSH:
 
 ```bash
 curl -X POST https://<your-domain>/api/admin/zones/import \

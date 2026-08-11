@@ -601,7 +601,7 @@
       <p>This permanently clears all crews, claims and leaderboard points. What should happen to the zones and their QR codes?</p>
       <div class="modal-actions">
         <button class="secondary" type="button" onclick={() => doReset(true)}>Keep zones &amp; QR codes</button>
-        <button class="danger" type="button" onclick={() => doReset(false)}>Delete zones too</button>
+        <button class="danger" type="button" onclick={() => doReset(false)}>Delete zones</button>
       </div>
       <button class="link-btn" type="button" onclick={() => (resetOpen = false)}>Cancel</button>
     </div>

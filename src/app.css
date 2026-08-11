@@ -443,6 +443,7 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   border: 1px dashed var(--edge-strong);
   border-radius: 8px;
 }
+.popup-hint a { color: var(--sea); font-weight: 600; text-decoration: underline; }
 
 /* Pulsing "you are here" dot */
 .me-dot {
