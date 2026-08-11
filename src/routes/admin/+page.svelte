@@ -10,6 +10,7 @@
   let loggedIn = $state(false);
   let pwInput = $state('');
   let loginErr = $state('');
+  let adminTab = $state('zones');
 
   // Data
   let zones = $state([]);
@@ -451,6 +452,13 @@
 {:else}
   <div class="admin-grid">
     <div class="admin-panel">
+      <div class="admin-tabs" role="tablist">
+        <button class="admin-tab" class:active={adminTab === 'zones'} role="tab" aria-selected={adminTab === 'zones'} onclick={() => (adminTab = 'zones')}>Zones</button>
+        <button class="admin-tab" class:active={adminTab === 'crews'} role="tab" aria-selected={adminTab === 'crews'} onclick={() => (adminTab = 'crews')}>Crews</button>
+        <button class="admin-tab" class:active={adminTab === 'data'} role="tab" aria-selected={adminTab === 'data'} onclick={() => (adminTab = 'data')}>Data</button>
+      </div>
+
+      {#if adminTab === 'zones'}
       <div class="card">
         <h2 class="form-title">
           {#if editingId}
@@ -477,49 +485,6 @@
           <button onclick={saveZone}>Save zone</button>
         </div>
         <div class="err">{formErr}</div>
-      </div>
-
-      <div class="card">
-        <h2>Import zones</h2>
-        <label class="checkbox-row">
-          <input type="checkbox" bind:checked={importReplace} />
-          <span>Replace existing zones</span>
-        </label>
-        <label for="zonesFile">Zones file (.json)</label>
-        <input id="zonesFile" type="file" accept="application/json,.json" bind:this={importInput} onchange={onZonesFilePick} disabled={importing} />
-        <div class="err">{importErr}</div>
-      </div>
-
-      <div class="card">
-        <h2>Export zones</h2>
-        <div class="form-actions">
-          <a href={exportUrl()} download>
-            <button class="secondary" type="button">Export zones</button>
-          </a>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Crews</h2>
-        <label for="grpName">Crew name</label>
-        <input id="grpName" placeholder="The Fog Chasers" maxlength="40" bind:value={grpName} />
-        <div class="btn-row"><button type="button" onclick={createCrewAdmin}>Create crew</button></div>
-        <div class="err">{grpErr}</div>
-        <div class="crew-list">
-          {#if crews.length === 0}
-            <p class="muted">No crews yet.</p>
-          {:else}
-            {#each crews as c}
-              <div class="zone-item">
-                <strong>{c.name}</strong>
-                <div class="muted crew-link">{crewLink(c.token)}</div>
-                <div class="row">
-                  <button class="secondary" type="button" onclick={() => copyCrewLink(c.token)}>Copy link</button>
-                </div>
-              </div>
-            {/each}
-          {/if}
-        </div>
       </div>
 
       <div class="card">
@@ -569,11 +534,59 @@
           {/if}
         </div>
       </div>
+      {/if}
+
+      {#if adminTab === 'crews'}
+      <div class="card">
+        <h2>Crews</h2>
+        <label for="grpName">Crew name</label>
+        <input id="grpName" placeholder="The Fog Chasers" maxlength="40" bind:value={grpName} />
+        <div class="btn-row"><button type="button" onclick={createCrewAdmin}>Create crew</button></div>
+        <div class="err">{grpErr}</div>
+        <div class="crew-list">
+          {#if crews.length === 0}
+            <p class="muted">No crews yet.</p>
+          {:else}
+            {#each crews as c}
+              <div class="zone-item">
+                <strong>{c.name}</strong>
+                <div class="muted crew-link">{crewLink(c.token)}</div>
+                <div class="row">
+                  <button class="secondary" type="button" onclick={() => copyCrewLink(c.token)}>Copy link</button>
+                </div>
+              </div>
+            {/each}
+          {/if}
+        </div>
+      </div>
+      {/if}
+
+      {#if adminTab === 'data'}
+      <div class="card">
+        <h2>Import zones</h2>
+        <label class="checkbox-row">
+          <input type="checkbox" bind:checked={importReplace} />
+          <span>Replace existing zones</span>
+        </label>
+        <label for="zonesFile">Zones file (.json)</label>
+        <input id="zonesFile" type="file" accept="application/json,.json" bind:this={importInput} onchange={onZonesFilePick} disabled={importing} />
+        <div class="err">{importErr}</div>
+      </div>
+
+      <div class="card">
+        <h2>Export zones</h2>
+        <div class="form-actions">
+          <a href={exportUrl()} download>
+            <button class="secondary" type="button">Export zones</button>
+          </a>
+        </div>
+      </div>
 
       <div class="card card-danger">
         <h2>Reset</h2>
         <button class="danger" type="button" onclick={() => (resetOpen = true)}>Reset game…</button>
       </div>
+      {/if}
     </div>
     <div id="map" bind:this={mapEl}></div>
   </div>

@@ -539,6 +539,15 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   width: 380px; padding: 16px; overflow-y: auto;
   background: var(--paper); border-right: 1px solid var(--edge);
 }
+.admin-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.admin-tab {
+  flex: 1; padding: 9px 8px; font-size: 12px;
+  background: transparent; color: var(--muted);
+  border: 1px solid var(--edge-strong);
+}
+.admin-tab.active {
+  background: var(--navy); color: #f4ead0; border-color: var(--navy);
+}
 .zone-item {
   padding: 12px; border: 1px solid var(--edge); border-radius: 10px;
   margin-bottom: 8px; background: var(--surface);
