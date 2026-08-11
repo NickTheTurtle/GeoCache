@@ -31,7 +31,7 @@ test.describe('Admin console', () => {
     await expectLegible(page.locator('h2', { hasText: 'Crews' }));
 
     // Seeded crews and zones are listed.
-    await expect(page.locator('.groups, .group-list, body')).toContainText('Fog Chasers');
+    await expect(page.locator('body')).toContainText('Fog Chasers');
     await expect(page.locator('body')).toContainText('Alpha Cache');
   });
 

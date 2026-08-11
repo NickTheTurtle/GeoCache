@@ -6,9 +6,9 @@ export async function POST({ request }) {
   const body = await request.json().catch(() => ({}));
   const zone = db.getZoneBySecret((body.secret || '').trim());
   if (!zone) throw error(404, 'Unknown QR code');
-  const group = db.getGroupByToken((body.groupToken || '').trim());
-  if (!group) throw error(400, 'Unknown crew. Open your crew link first.');
+  const crew = db.getCrewByToken((body.crewToken || '').trim());
+  if (!crew) throw error(400, 'Unknown crew. Open your crew link first.');
 
-  const result = db.claimZone(zone.id, group.id);
+  const result = db.claimZone(zone.id, crew.id);
   return json({ status: result.status, zone: { id: zone.id, name: zone.name } });
 }

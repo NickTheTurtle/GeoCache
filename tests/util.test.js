@@ -58,10 +58,17 @@ test('renderHint escapes HTML before applying markdown (XSS-safe)', () => {
   assert.equal(renderHint(null), '');
 });
 
-test('renderHint leaves spaced underscore blanks untouched', () => {
-  // The Turtle fable uses "_ _ _ _ _ _" as literal fill-in blanks.
-  assert.equal(renderHint('beat the _ _ _ _ _ _ in a race'), 'beat the _ _ _ _ _ _ in a race');
-  // a lone underscore or mid-word underscore is not italics
+test('renderHint escapes delimiters with a backslash', () => {
+  // Fill-in blanks: escape each underscore so it stays literal.
+  assert.equal(
+    renderHint('beat the \\_ \\_ \\_ \\_ \\_ \\_ in a race'),
+    'beat the _ _ _ _ _ _ in a race'
+  );
+  // Escaped asterisks/underscores are literal, not emphasis.
+  assert.equal(renderHint('3 \\* 4 = 12'), '3 * 4 = 12');
+  assert.equal(renderHint('\\*not italic\\*'), '*not italic*');
+  assert.equal(renderHint('\\_not italic\\_'), '_not italic_');
+  // A lone underscore or mid-word underscore is not italics.
   assert.equal(renderHint('snake_case value'), 'snake_case value');
 });
 

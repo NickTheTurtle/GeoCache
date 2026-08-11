@@ -67,7 +67,7 @@
     setTimeout(() => { toasts = toasts.filter((t) => t.id !== id); }, 2500);
   }
 
-  const groupLink = (token) => `${location.origin}/?g=${token}`;
+  const crewLink = (token) => `${location.origin}/?g=${token}`;
 
   // ---------- Login ----------
   async function doLogin() {
@@ -154,37 +154,37 @@
   }
 
   // ---------- Crews ----------
-  async function loadGroups() {
-    crews = await fetch('/api/groups', { headers: authHeaders() }).then((r) => r.json());
+  async function loadCrews() {
+    crews = await fetch('/api/crews', { headers: authHeaders() }).then((r) => r.json());
   }
 
-  async function createGroupAdmin() {
+  async function createCrewAdmin() {
     grpErr = '';
     const name = grpName.trim();
     if (!name) { grpErr = 'Enter a crew name.'; return; }
-    const res = await fetch('/api/groups', {
+    const res = await fetch('/api/crews', {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ name }),
     });
     const data = await res.json();
-    if (!res.ok) { grpErr = data.error || data.message || 'Failed to create crew.'; return; }
+    if (!res.ok) { grpErr = data.message || 'Failed to create crew.'; return; }
     grpName = '';
     toast('Crew created');
-    loadGroups();
+    loadCrews();
   }
 
-  function copyGroupLink(token) {
-    navigator.clipboard.writeText(groupLink(token)).then(() => toast('Personal link copied'));
+  function copyCrewLink(token) {
+    navigator.clipboard.writeText(crewLink(token)).then(() => toast('Personal link copied'));
   }
 
   // ---------- Zones ----------
   async function loadZones() {
-    const [zList, gList] = await Promise.all([
+    const [zList, cList] = await Promise.all([
       fetch('/api/admin/zones', { headers: authHeaders() }).then((r) => r.json()),
-      fetch('/api/groups', { headers: authHeaders() }).then((r) => r.json()),
+      fetch('/api/crews', { headers: authHeaders() }).then((r) => r.json()),
     ]);
-    crews = gList;
+    crews = cList;
     zones = zList;
 
     // Diff the saved-zone layers instead of wiping them, so the 15s poll
@@ -211,30 +211,30 @@
 
   function availableCrews(z) {
     const claimedIds = new Set((z.claimedBy || []).map((c) => c.id));
-    return crews.filter((g) => !claimedIds.has(g.id));
+    return crews.filter((c) => !claimedIds.has(c.id));
   }
 
   async function claimZoneFor(zoneId) {
-    const groupId = Number(claimSel[zoneId]);
-    if (!groupId) return;
+    const crewId = Number(claimSel[zoneId]);
+    if (!crewId) return;
     const res = await fetch(`/api/admin/zones/${zoneId}/claim`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ groupId }),
+      body: JSON.stringify({ crewId }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) { toast(data.error || data.message || 'Claim failed'); return; }
+    if (!res.ok) { toast(data.message || 'Claim failed'); return; }
     toast(data.status === 'already-yours' ? 'Crew already claimed it' : 'Zone claimed');
     loadZones();
   }
 
-  async function unclaimZoneFor(zoneId, groupId) {
+  async function unclaimZoneFor(zoneId, crewId) {
     const res = await fetch(`/api/admin/zones/${zoneId}/unclaim`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ groupId }),
+      body: JSON.stringify({ crewId }),
     });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); toast(d.error || d.message || 'Failed'); return; }
+    if (!res.ok) { const d = await res.json().catch(() => ({})); toast(d.message || 'Failed'); return; }
     toast('Claim removed');
     loadZones();
   }
@@ -277,7 +277,7 @@
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (!res.ok) { formErr = data.error || data.message || 'Save failed.'; return; }
+    if (!res.ok) { formErr = data.message || 'Save failed.'; return; }
     toast(editingId ? 'Zone updated' : 'Zone created');
     resetForm();
     clearDraft();
@@ -364,7 +364,7 @@
         body: JSON.stringify({ zones: list, replace: importReplace }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { importErr = data.error || data.message || 'Import failed.'; return; }
+      if (!res.ok) { importErr = data.message || 'Import failed.'; return; }
       toast(`Imported ${data.imported} zone${data.imported === 1 ? '' : 's'}`);
       if (map) { map.setView(SF_CENTER, 12); }
       loadZones();
@@ -444,7 +444,7 @@
       <label for="pw">Admin password</label>
       <input id="pw" type="password" placeholder="Password" bind:value={pwInput}
         onkeydown={(e) => { if (e.key === 'Enter') doLogin(); }} />
-      <div style="margin-top:10px"><button onclick={doLogin}>Log in</button></div>
+      <div class="btn-row"><button onclick={doLogin}>Log in</button></div>
       <div class="err">{loginErr}</div>
     </div>
   </div>
@@ -503,18 +503,18 @@
         <h2>Crews</h2>
         <label for="grpName">Crew name</label>
         <input id="grpName" placeholder="The Fog Chasers" maxlength="40" bind:value={grpName} />
-        <div style="margin-top:10px"><button type="button" onclick={createGroupAdmin}>Create crew</button></div>
+        <div class="btn-row"><button type="button" onclick={createCrewAdmin}>Create crew</button></div>
         <div class="err">{grpErr}</div>
-        <div style="margin-top:14px">
+        <div class="crew-list">
           {#if crews.length === 0}
             <p class="muted">No crews yet.</p>
           {:else}
-            {#each crews as g}
+            {#each crews as c}
               <div class="zone-item">
-                <strong>{g.name}</strong>
-                <div class="muted" style="font-size:12px;word-break:break-all;margin-top:4px">{groupLink(g.token)}</div>
+                <strong>{c.name}</strong>
+                <div class="muted crew-link">{crewLink(c.token)}</div>
                 <div class="row">
-                  <button class="secondary" type="button" onclick={() => copyGroupLink(g.token)}>Copy link</button>
+                  <button class="secondary" type="button" onclick={() => copyCrewLink(c.token)}>Copy link</button>
                 </div>
               </div>
             {/each}
@@ -533,7 +533,7 @@
                 <strong>{z.name}</strong>
                 <div class="row">
                   <img class="qr-thumb" src={`/api/admin/zones/${z.id}/qr?t=${encodeURIComponent(imgToken)}`} alt={`QR code for ${z.name}`} />
-                  <div style="display:flex;flex-direction:column;gap:6px">
+                  <div class="qr-actions">
                     <a href={`/api/admin/zones/${z.id}/qr?download=1&t=${encodeURIComponent(imgToken)}`} download>
                       <button class="secondary" type="button">Download QR</button>
                     </a>
@@ -548,17 +548,17 @@
                         <span class="claim-chip">{c.name}<button class="chip-remove" type="button" title="Remove claim" onclick={() => unclaimZoneFor(z.id, c.id)}>Remove</button></span>
                       {/each}
                     {:else}
-                      <span class="muted" style="font-size:12px">No claims yet</span>
+                      <span class="muted claim-note">No claims yet</span>
                     {/if}
                   </div>
                   {#if crews.length === 0}
-                    <div class="muted" style="font-size:12px">Create a crew to assign claims.</div>
+                    <div class="muted claim-note">Create a crew to assign claims.</div>
                   {:else if availableCrews(z).length === 0}
-                    <div class="muted" style="font-size:12px">All crews have claimed this zone.</div>
+                    <div class="muted claim-note">All crews have claimed this zone.</div>
                   {:else}
                     <div class="claim-row">
                       <select bind:value={claimSel[z.id]} aria-label={`Choose a crew to claim ${z.name}`}>
-                        {#each availableCrews(z) as g}<option value={g.id}>{g.name}</option>{/each}
+                        {#each availableCrews(z) as c}<option value={c.id}>{c.name}</option>{/each}
                       </select>
                       <button class="secondary" type="button" onclick={() => claimZoneFor(z.id)}>Claim</button>
                     </div>
@@ -570,7 +570,7 @@
         </div>
       </div>
 
-      <div class="card" style="border-color:var(--signal-red)">
+      <div class="card card-danger">
         <h2>Reset</h2>
         <button class="danger" type="button" onclick={() => (resetOpen = true)}>Reset game…</button>
       </div>

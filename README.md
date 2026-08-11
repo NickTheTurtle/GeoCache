@@ -1,12 +1,12 @@
 # 🧭 GeoCache SF
 
 A GeoCaching game for you and your friends, bounded to San Francisco. Admins
-draw zones on a map and hide a QR-coded object in each; groups race to find the
+draw zones on a map and hide a QR-coded object in each; crews race to find the
 objects, scan the codes, and score points.
 
 ## Features
 
-- **One-click registration** — each group gets a personal link (`/?g=<token>`)
+- **One-click registration** — each crew gets a personal link (`/?g=<token>`)
   that identifies them so scans claim zones for them.
 - **SF map** (Leaflet + OpenStreetMap) — every zone is a boundary; click to zoom
   in and read its hint.
@@ -53,8 +53,8 @@ console, and mobile layout, and assert text legibility (contrast).
 
 1. **Admin** (`/admin`) draws each zone, adds a hint, saves, then **Download QR**
    and attaches it to the physical object.
-2. **Players** open the site, create their group, and keep their personal link.
-3. On finding an object, a group scans its QR code and taps **Claim** for a point.
+2. **Players** open the site, create their crew, and keep their personal link.
+3. On finding an object, a crew scans its QR code and taps **Claim** for a point.
 
 ## Bulk zones: import / export
 
@@ -82,7 +82,8 @@ Format (see [`zones.example.json`](./zones.example.json)):
 }
 ```
 
-`hint` supports markdown (`**bold**`, `_italic_`). A bare top-level array is also
+`hint` supports markdown (`**bold**`, `_italic_`); escape a delimiter with a
+backslash to keep it literal (`\*`, `\_`). A bare top-level array is also
 accepted. To import over SSH:
 
 ```bash

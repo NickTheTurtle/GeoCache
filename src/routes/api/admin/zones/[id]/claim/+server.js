@@ -8,8 +8,8 @@ export async function POST({ request, url, params }) {
   const id = Number(params.id);
   if (!db.getZoneById(id)) throw error(404, 'Zone not found');
   const body = await request.json().catch(() => ({}));
-  const group = db.getGroupById(Number(body.groupId));
-  if (!group) throw error(400, 'Unknown crew');
-  const result = db.claimZone(id, group.id);
-  return json({ ...result, group: { id: group.id, name: group.name } });
+  const crew = db.getCrewById(Number(body.crewId));
+  if (!crew) throw error(400, 'Unknown crew');
+  const result = db.claimZone(id, crew.id);
+  return json({ ...result, crew: { id: crew.id, name: crew.name } });
 }

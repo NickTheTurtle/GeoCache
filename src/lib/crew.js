@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
-const KEY = 'geocache_group';
+const KEY = 'geocache_crew';
 
 function initial() {
   if (!browser) return null;

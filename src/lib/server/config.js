@@ -42,15 +42,14 @@ function validAdminToken(tok) {
 }
 
 // True when the request carries valid admin credentials: the x-admin-password
-// header, a ?pw= query param, or a signed ?t= token (for image/QR URLs).
+// header, or a signed ?t= token (for image/QR/export URLs that can't set headers).
 export function isAdmin(request, url) {
-  const pw = request.headers.get('x-admin-password') || url.searchParams.get('pw');
-  if (pw === ADMIN_PASSWORD) return true;
+  if (request.headers.get('x-admin-password') === ADMIN_PASSWORD) return true;
   return validAdminToken(url.searchParams.get('t'));
 }
 
-// Reject non-admin requests. Admin password comes via the x-admin-password
-// header or a ?pw= query param (used by <img>/<a> tags that can't set headers).
+// Reject non-admin requests. Credentials come via the x-admin-password header or
+// a signed ?t= token (used by <img>/<a> tags that can't set headers).
 export function requireAdmin(request, url) {
   if (!isAdmin(request, url)) throw error(401, 'Bad admin password');
 }

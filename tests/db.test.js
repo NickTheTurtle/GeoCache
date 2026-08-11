@@ -30,13 +30,13 @@ after(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
 });
 
-test('createGroup issues a unique token and is retrievable', () => {
-  const g = db.createGroup('Alpha');
+test('createCrew issues a unique token and is retrievable', () => {
+  const g = db.createCrew('Alpha');
   assert.ok(g.id);
   assert.ok(g.token);
-  assert.equal(db.getGroupByToken(g.token).name, 'Alpha');
+  assert.equal(db.getCrewByToken(g.token).name, 'Alpha');
 
-  const g2 = db.createGroup('Beta');
+  const g2 = db.createCrew('Beta');
   assert.notEqual(g.token, g2.token); // tokens are unique
 });
 
@@ -52,7 +52,7 @@ test('createZone stores polygon and a secret; public list never leaks the secret
 });
 
 test('claimZone is idempotent and does not double-count points', () => {
-  const g = db.createGroup('Claimers');
+  const g = db.createCrew('Claimers');
   const z = db.createZone({ name: 'Zone B', hint: '', polygon: POLY });
 
   assert.equal(db.claimZone(z.id, g.id).status, 'claimed');
@@ -62,9 +62,9 @@ test('claimZone is idempotent and does not double-count points', () => {
   assert.equal(row.points, 1); // still only one point
 });
 
-test('a zone can be claimed by multiple groups', () => {
-  const g1 = db.createGroup('G1');
-  const g2 = db.createGroup('G2');
+test('a zone can be claimed by multiple crews', () => {
+  const g1 = db.createCrew('G1');
+  const g2 = db.createCrew('G2');
   const z = db.createZone({ name: 'Shared', hint: '', polygon: POLY });
 
   assert.equal(db.claimZone(z.id, g1.id).status, 'claimed');
@@ -75,11 +75,11 @@ test('a zone can be claimed by multiple groups', () => {
 });
 
 test('getZoneClaimers returns claiming crews for one zone, earliest first', () => {
-  const g1 = db.createGroup('First');
-  const g2 = db.createGroup('Second');
+  const g1 = db.createCrew('First');
+  const g2 = db.createCrew('Second');
   const z = db.createZone({ name: 'Claimed Zone', hint: '', polygon: POLY });
-  db.db.prepare("INSERT INTO claims (zone_id, group_id, created_at) VALUES (?, ?, ?)").run(z.id, g1.id, '2026-01-01 10:00:00.000');
-  db.db.prepare("INSERT INTO claims (zone_id, group_id, created_at) VALUES (?, ?, ?)").run(z.id, g2.id, '2026-01-01 10:05:00.000');
+  db.db.prepare("INSERT INTO claims (zone_id, crew_id, created_at) VALUES (?, ?, ?)").run(z.id, g1.id, '2026-01-01 10:00:00.000');
+  db.db.prepare("INSERT INTO claims (zone_id, crew_id, created_at) VALUES (?, ?, ?)").run(z.id, g2.id, '2026-01-01 10:05:00.000');
 
   const claimers = db.getZoneClaimers(z.id);
   assert.deepEqual(claimers.map((c) => c.name), ['First', 'Second']);
@@ -99,7 +99,7 @@ test('zonePublic strips image blob columns and parses the polygon', () => {
 });
 
 test('unclaimZone removes a claim', () => {
-  const g = db.createGroup('Unclaimer');
+  const g = db.createCrew('Unclaimer');
   const z = db.createZone({ name: 'Zone C', hint: '', polygon: POLY });
   db.claimZone(z.id, g.id);
 
@@ -109,7 +109,7 @@ test('unclaimZone removes a claim', () => {
 });
 
 test('deleteZone removes the zone and its claims', () => {
-  const g = db.createGroup('Deleter');
+  const g = db.createCrew('Deleter');
   const z = db.createZone({ name: 'Zone D', hint: '', polygon: POLY });
   db.claimZone(z.id, g.id);
 
@@ -171,16 +171,16 @@ test('importZones is atomic: a bad zone rolls back the whole batch', () => {
 });
 
 test('foreign keys are enforced: claiming a non-existent zone throws', () => {
-  const g = db.createGroup('FKGroup');
+  const g = db.createCrew('FKCrew');
   assert.throws(() => db.claimZone(9999999, g.id));
 });
 
-test('resetGame clears groups and claims but keeps zones by default', () => {
-  db.createGroup('Temp');
+test('resetGame clears crews and claims but keeps zones by default', () => {
+  db.createCrew('Temp');
   const z = db.createZone({ name: 'Keeper', hint: '', polygon: POLY });
 
   db.resetGame(); // keepZones defaults to true
-  assert.equal(db.listGroups().length, 0);
+  assert.equal(db.listCrews().length, 0);
   assert.equal(db.leaderboard().length, 0);
   assert.ok(db.getZoneById(z.id)); // zone survives
 
@@ -190,12 +190,12 @@ test('resetGame clears groups and claims but keeps zones by default', () => {
 
 test('leaderboard breaks ties by who reached the score first', () => {
   db.resetGame({ keepZones: false });
-  const early = db.createGroup('Early');
-  const late = db.createGroup('Late');
+  const early = db.createCrew('Early');
+  const late = db.createCrew('Late');
   const z1 = db.createZone({ name: 'T1', hint: '', polygon: POLY });
   const z2 = db.createZone({ name: 'T2', hint: '', polygon: POLY });
 
-  const ins = db.db.prepare('INSERT INTO claims (zone_id, group_id, created_at) VALUES (?,?,?)');
+  const ins = db.db.prepare('INSERT INTO claims (zone_id, crew_id, created_at) VALUES (?,?,?)');
   // Both crews finish with 1 point, but Early's claim is timestamped earlier.
   ins.run(z1.id, early.id, '2026-01-01 10:00:00.000');
   ins.run(z2.id, late.id, '2026-01-01 10:05:00.000');
@@ -207,10 +207,10 @@ test('leaderboard breaks ties by who reached the score first', () => {
 
 test('leaderboard tie uses the most-recent claim (reaching the score first)', () => {
   db.resetGame({ keepZones: false });
-  const a = db.createGroup('A');
-  const b = db.createGroup('B');
+  const a = db.createCrew('A');
+  const b = db.createCrew('B');
   const zones = ['X1', 'X2', 'X3', 'X4'].map((n) => db.createZone({ name: n, hint: '', polygon: POLY }));
-  const ins = db.db.prepare('INSERT INTO claims (zone_id, group_id, created_at) VALUES (?,?,?)');
+  const ins = db.db.prepare('INSERT INTO claims (zone_id, crew_id, created_at) VALUES (?,?,?)');
   // A reaches 2 points at 10:10; B reaches 2 points at 10:05 (earlier) -> B first,
   // even though A's first claim (10:00) predates B's first claim (10:01).
   ins.run(zones[0].id, a.id, '2026-02-01 10:00:00.000');
@@ -225,10 +225,10 @@ test('leaderboard tie uses the most-recent claim (reaching the score first)', ()
 
 test('more points always outranks an earlier claim time', () => {
   db.resetGame({ keepZones: false });
-  const leader = db.createGroup('TwoPts');
-  const rival = db.createGroup('OnePtEarly');
+  const leader = db.createCrew('TwoPts');
+  const rival = db.createCrew('OnePtEarly');
   const zones = ['Y1', 'Y2', 'Y3'].map((n) => db.createZone({ name: n, hint: '', polygon: POLY }));
-  const ins = db.db.prepare('INSERT INTO claims (zone_id, group_id, created_at) VALUES (?,?,?)');
+  const ins = db.db.prepare('INSERT INTO claims (zone_id, crew_id, created_at) VALUES (?,?,?)');
   ins.run(zones[0].id, rival.id, '2026-03-01 09:00:00.000'); // earliest, but only 1 point
   ins.run(zones[1].id, leader.id, '2026-03-01 12:00:00.000');
   ins.run(zones[2].id, leader.id, '2026-03-01 12:01:00.000');

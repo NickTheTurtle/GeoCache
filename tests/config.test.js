@@ -66,11 +66,11 @@ test('decodeImage rejects SVG (stored-XSS vector)', () => {
 const fakeReq = (pw) => ({ headers: { get: (k) => (k === 'x-admin-password' ? pw ?? null : null) } });
 const fakeUrl = (qs = '') => new URL(`https://x/${qs}`);
 
-test('isAdmin accepts the password via header or ?pw=, rejects wrong ones', () => {
+test('isAdmin accepts the password via header, rejects wrong ones and ?pw=', () => {
   assert.equal(isAdmin(fakeReq('changeme'), fakeUrl()), true);
   assert.equal(isAdmin(fakeReq('nope'), fakeUrl()), false);
-  assert.equal(isAdmin(fakeReq(), fakeUrl('?pw=changeme')), true);
-  assert.equal(isAdmin(fakeReq(), fakeUrl('?pw=wrong')), false);
+  // ?pw= is no longer accepted (passwords must not travel in URLs).
+  assert.equal(isAdmin(fakeReq(), fakeUrl('?pw=changeme')), false);
 });
 
 test('makeAdminToken mints a token isAdmin accepts via ?t=; tampering is rejected', () => {

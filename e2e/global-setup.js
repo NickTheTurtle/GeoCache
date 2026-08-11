@@ -49,8 +49,8 @@ export default async function globalSetup() {
   await api('/api/admin/reset', { method: 'POST', headers: H, body: JSON.stringify({ keepZones: false }) });
 
   // Crews
-  const fog = await api('/api/groups', { method: 'POST', headers: H, body: JSON.stringify({ name: 'Fog Chasers' }) });
-  const trolls = await api('/api/groups', { method: 'POST', headers: H, body: JSON.stringify({ name: 'Bridge Trolls' }) });
+  const fog = await api('/api/crews', { method: 'POST', headers: H, body: JSON.stringify({ name: 'Fog Chasers' }) });
+  const trolls = await api('/api/crews', { method: 'POST', headers: H, body: JSON.stringify({ name: 'Bridge Trolls' }) });
 
   // Zones
   const alpha = await api('/api/admin/zones', {
@@ -77,7 +77,7 @@ export default async function globalSetup() {
   await api(`/api/admin/zones/${beta.id}/claim`, {
     method: 'POST',
     headers: H,
-    body: JSON.stringify({ groupId: fog.id }),
+    body: JSON.stringify({ crewId: fog.id }),
   });
 
   const fixture = {

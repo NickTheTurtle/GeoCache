@@ -11,8 +11,26 @@ const db = new DatabaseSync(path.join(DATA_DIR, 'geocache.db'));
 db.exec(`
   PRAGMA journal_mode = WAL;
   PRAGMA foreign_keys = ON;
+`);
 
-  CREATE TABLE IF NOT EXISTS groups (
+// Migration: rename the legacy `groups` table / `claims.group_id` column to
+// `crews` / `crew_id` (SQLite rewrites the dependent FK + UNIQUE constraints).
+{
+  const tables = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+    .all()
+    .map((t) => t.name);
+  if (tables.includes('groups') && !tables.includes('crews')) {
+    db.exec('ALTER TABLE groups RENAME TO crews');
+  }
+  const claimCols = db.prepare('PRAGMA table_info(claims)').all().map((c) => c.name);
+  if (claimCols.includes('group_id') && !claimCols.includes('crew_id')) {
+    db.exec('ALTER TABLE claims RENAME COLUMN group_id TO crew_id');
+  }
+}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS crews (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL,
     token      TEXT NOT NULL UNIQUE,
@@ -31,9 +49,9 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS claims (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     zone_id    INTEGER NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
-    group_id   INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    crew_id    INTEGER NOT NULL REFERENCES crews(id) ON DELETE CASCADE,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')),
-    UNIQUE (zone_id, group_id)   -- a group can claim a given zone only once
+    UNIQUE (zone_id, crew_id)   -- a crew can claim a given zone only once
   );
 `);
 
@@ -51,23 +69,23 @@ function newToken(bytes = 9) {
   return crypto.randomBytes(bytes).toString('base64url');
 }
 
-// ---------- Groups ----------
-export function createGroup(name) {
+// ---------- Crews ----------
+export function createCrew(name) {
   const token = newToken();
-  const info = db.prepare('INSERT INTO groups (name, token) VALUES (?, ?)').run(name, token);
-  return getGroupById(info.lastInsertRowid);
+  const info = db.prepare('INSERT INTO crews (name, token) VALUES (?, ?)').run(name, token);
+  return getCrewById(info.lastInsertRowid);
 }
 
-export function getGroupById(id) {
-  return db.prepare('SELECT * FROM groups WHERE id = ?').get(id);
+export function getCrewById(id) {
+  return db.prepare('SELECT * FROM crews WHERE id = ?').get(id);
 }
 
-export function getGroupByToken(token) {
-  return db.prepare('SELECT * FROM groups WHERE token = ?').get(token);
+export function getCrewByToken(token) {
+  return db.prepare('SELECT * FROM crews WHERE token = ?').get(token);
 }
 
-export function listGroups() {
-  return db.prepare('SELECT id, name, token, created_at FROM groups ORDER BY name').all();
+export function listCrews() {
+  return db.prepare('SELECT id, name, token, created_at FROM crews ORDER BY name').all();
 }
 
 // ---------- Zones ----------
@@ -171,31 +189,18 @@ export function getZoneBySecret(secret) {
 export function getZoneClaimers(zoneId) {
   return db
     .prepare(
-      `SELECT c.group_id AS id, g.name AS name, c.created_at AS at
+      `SELECT c.crew_id AS id, cr.name AS name, c.created_at AS at
          FROM claims c
-         JOIN groups g ON g.id = c.group_id
+         JOIN crews cr ON cr.id = c.crew_id
         WHERE c.zone_id = ?
         ORDER BY c.created_at`
     )
     .all(zoneId);
 }
 
-// Public zone list with claim info (never leaks the secret).
-// Each zone can be claimed by multiple groups; claimedBy is an array.
-export function listZonesPublic() {
-  const rows = db
-    .prepare(
-      `SELECT z.id, z.name, z.hint, z.polygon, z.image_ver,
-              c.group_id AS claimed_group_id,
-              g.name     AS claimed_group_name,
-              c.created_at AS claimed_at
-         FROM zones z
-         LEFT JOIN claims c ON c.zone_id = z.id
-         LEFT JOIN groups g ON g.id = c.group_id
-        ORDER BY z.id, c.created_at`
-    )
-    .all();
-
+// Group flat zone+claim rows (one per claim) into zones with a claimedBy array.
+// With includeSecret, each zone also carries its QR secret (admin only).
+function groupZoneRows(rows, { includeSecret = false } = {}) {
   const byId = new Map();
   for (const r of rows) {
     let zone = byId.get(r.id);
@@ -208,13 +213,32 @@ export function listZonesPublic() {
         image: r.image_ver ? `/api/zones/${r.id}/image?v=${r.image_ver}` : null,
         claimedBy: [],
       };
+      if (includeSecret) zone.secret = r.secret;
       byId.set(r.id, zone);
     }
-    if (r.claimed_group_id) {
-      zone.claimedBy.push({ id: r.claimed_group_id, name: r.claimed_group_name, at: r.claimed_at });
+    if (r.claimed_crew_id) {
+      zone.claimedBy.push({ id: r.claimed_crew_id, name: r.claimed_crew_name, at: r.claimed_at });
     }
   }
   return [...byId.values()];
+}
+
+// Public zone list with claim info (never leaks the secret). Each zone can be
+// claimed by multiple crews; claimedBy is an array.
+export function listZonesPublic() {
+  const rows = db
+    .prepare(
+      `SELECT z.id, z.name, z.hint, z.polygon, z.image_ver,
+              c.crew_id    AS claimed_crew_id,
+              cr.name      AS claimed_crew_name,
+              c.created_at AS claimed_at
+         FROM zones z
+         LEFT JOIN claims c ON c.zone_id = z.id
+         LEFT JOIN crews cr ON cr.id = c.crew_id
+        ORDER BY z.id, c.created_at`
+    )
+    .all();
+  return groupZoneRows(rows);
 }
 
 // Admin list (includes secret so QR codes can be generated, and current claimers).
@@ -222,57 +246,36 @@ export function listZonesAdmin() {
   const rows = db
     .prepare(
       `SELECT z.id, z.name, z.hint, z.polygon, z.secret, z.image_ver,
-              c.group_id AS claimed_group_id,
-              g.name     AS claimed_group_name
+              c.crew_id    AS claimed_crew_id,
+              cr.name      AS claimed_crew_name,
+              c.created_at AS claimed_at
          FROM zones z
          LEFT JOIN claims c ON c.zone_id = z.id
-         LEFT JOIN groups g ON g.id = c.group_id
+         LEFT JOIN crews cr ON cr.id = c.crew_id
         ORDER BY z.id, c.created_at`
     )
     .all();
-
-  const byId = new Map();
-  for (const r of rows) {
-    let zone = byId.get(r.id);
-    if (!zone) {
-      zone = {
-        id: r.id,
-        name: r.name,
-        hint: r.hint,
-        polygon: JSON.parse(r.polygon),
-        secret: r.secret,
-        image: r.image_ver ? `/api/zones/${r.id}/image?v=${r.image_ver}` : null,
-        claimedBy: [],
-      };
-      byId.set(r.id, zone);
-    }
-    if (r.claimed_group_id) {
-      zone.claimedBy.push({ id: r.claimed_group_id, name: r.claimed_group_name });
-    }
-  }
-  return [...byId.values()];
+  return groupZoneRows(rows, { includeSecret: true });
 }
 
 // ---------- Claims ----------
-// Multiple groups may claim the same zone, but each group only once.
-// INSERT OR IGNORE + the UNIQUE(zone_id, group_id) constraint makes this
-// idempotent and race-proof (no check-then-insert window, no duplicate points).
-// created_at is stamped with millisecond precision so the leaderboard can break
-// ties by who reached their score first.
+// Multiple crews may claim the same zone, but each crew only once. INSERT OR
+// IGNORE + the UNIQUE(zone_id, crew_id) constraint makes this idempotent and
+// race-proof (no check-then-insert window, no duplicate points). created_at is
+// stamped with millisecond precision (via the column default) so the
+// leaderboard can break ties by who reached their score first.
 // Returns { status: 'claimed' | 'already-yours' }
-export function claimZone(zoneId, groupId) {
+export function claimZone(zoneId, crewId) {
   const info = db
-    .prepare(
-      "INSERT OR IGNORE INTO claims (zone_id, group_id, created_at) VALUES (?, ?, strftime('%Y-%m-%d %H:%M:%f', 'now'))"
-    )
-    .run(zoneId, groupId);
+    .prepare('INSERT OR IGNORE INTO claims (zone_id, crew_id) VALUES (?, ?)')
+    .run(zoneId, crewId);
   return { status: info.changes > 0 ? 'claimed' : 'already-yours' };
 }
 
-export function unclaimZone(zoneId, groupId) {
+export function unclaimZone(zoneId, crewId) {
   const info = db
-    .prepare('DELETE FROM claims WHERE zone_id = ? AND group_id = ?')
-    .run(zoneId, groupId);
+    .prepare('DELETE FROM claims WHERE zone_id = ? AND crew_id = ?')
+    .run(zoneId, crewId);
   return { removed: info.changes > 0 };
 }
 
@@ -282,24 +285,24 @@ export function leaderboard() {
   // Crews with no claims (NULL) fall to the bottom of the tie.
   return db
     .prepare(
-      `SELECT g.id, g.name,
+      `SELECT cr.id, cr.name,
               COUNT(c.id) AS points,
               MAX(c.created_at) AS last_claim_at
-         FROM groups g
-         LEFT JOIN claims c ON c.group_id = g.id
-        GROUP BY g.id
+         FROM crews cr
+         LEFT JOIN claims c ON c.crew_id = cr.id
+        GROUP BY cr.id
         ORDER BY points DESC,
                  (last_claim_at IS NULL) ASC,
                  last_claim_at ASC,
-                 g.name ASC`
+                 cr.name ASC`
     )
     .all();
 }
 
-// Reset the game. Always clears claims and groups; optionally keeps zones.
+// Reset the game. Always clears claims and crews; optionally keeps zones.
 export function resetGame({ keepZones = true } = {}) {
   db.exec('DELETE FROM claims');
-  db.exec('DELETE FROM groups');
+  db.exec('DELETE FROM crews');
   if (!keepZones) db.exec('DELETE FROM zones');
 }
 

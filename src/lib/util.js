@@ -7,17 +7,22 @@ export function escapeHtml(s) {
 // Render a hint with limited, safe Markdown (bold + italic only). The text is
 // HTML-escaped FIRST so raw hint content can never inject markup, then the
 // bold/italic delimiters are turned into <strong>/<em>. Newlines are left as-is
-// (the .popup-hint CSS uses white-space: pre-wrap). Underscore syntax requires
-// the delimiter to hug non-space content, so literal blanks like "_ _ _ _ _ _"
-// (used in the Turtle fable) are never mistaken for italics.
+// (.popup-hint CSS uses white-space: pre-wrap). Escape a delimiter with a
+// backslash to keep it literal: "\*" -> * and "\_" -> _ (handy for fill-in
+// blanks like "\_ \_ \_" or "3 \* 4").
 export function renderHint(s) {
   let out = escapeHtml(s == null ? '' : s);
+  // Set escaped delimiters aside as placeholders (private-use chars) so they are
+  // never parsed as markdown, then restore them as literals at the end.
+  const STAR = '\uE000';
+  const UNDER = '\uE001';
+  out = out.replace(/\\([*_])/g, (_, ch) => (ch === '*' ? STAR : UNDER));
   out = out
-    .replace(/\*\*(?=\S)([\s\S]+?)(?<=\S)\*\*/g, '<strong>$1</strong>')
-    .replace(/__(?=\S)([\s\S]+?)(?<=\S)__/g, '<strong>$1</strong>')
-    .replace(/\*(?=\S)([\s\S]+?)(?<=\S)\*/g, '<em>$1</em>')
-    .replace(/(?<![A-Za-z0-9_])_(?=\S)([^_\n]+?)(?<=\S)_(?![A-Za-z0-9_])/g, '<em>$1</em>');
-  return out;
+    .replace(/\*\*([\s\S]+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/__([\s\S]+?)__/g, '<strong>$1</strong>')
+    .replace(/\*([\s\S]+?)\*/g, '<em>$1</em>')
+    .replace(/(?<![A-Za-z0-9_])_([^_\n]+?)_(?![A-Za-z0-9_])/g, '<em>$1</em>');
+  return out.split(STAR).join('*').split(UNDER).join('_');
 }
 
 // Shared zone polygon styling for the main map. Only zones the current crew has

@@ -204,7 +204,7 @@
       const res = await fetch('/api/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret, groupToken: currentCrew.token }),
+        body: JSON.stringify({ secret, crewToken: currentCrew.token }),
       });
       const data = await res.json();
       if (res.ok && data.status === 'claimed') {
@@ -214,7 +214,7 @@
       } else if (data.status === 'already-yours') {
         celebrate(`Your crew already claimed ${data.zone.name}.`, false);
       } else {
-        scanMsg = data.error || data.message || 'Could not claim this zone.';
+        scanMsg = data.message || 'Could not claim this zone.';
         scanMsgClass = 'err';
         scanErr = true;
       }
@@ -318,12 +318,12 @@
   }
 
   // ---------- URL crew adoption ----------
-  async function adoptGroupFromUrl() {
+  async function adoptCrewFromUrl() {
     const params = new URLSearchParams(location.search);
     const token = params.get('g');
     if (!token) return;
     try {
-      const g = await fetch(`/api/groups/${encodeURIComponent(token)}`).then((r) => {
+      const g = await fetch(`/api/crews/${encodeURIComponent(token)}`).then((r) => {
         if (!r.ok) throw new Error('not found');
         return r.json();
       });
@@ -368,7 +368,7 @@
       const res = await fetch('/api/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret: claimSecret, groupToken: currentCrew.token }),
+        body: JSON.stringify({ secret: claimSecret, crewToken: currentCrew.token }),
       });
       const data = await res.json();
       if (res.ok && data.status === 'claimed') {
@@ -378,7 +378,7 @@
       } else if (data.status === 'already-yours') {
         claimView = 'already';
       } else {
-        claimErrMsg = data.error || data.message || 'Could not claim this zone.';
+        claimErrMsg = data.message || 'Could not claim this zone.';
         claiming = false;
       }
     } catch {
@@ -394,7 +394,7 @@
   let interval;
   onMount(async () => {
     const claimParam = new URLSearchParams(location.search).get('c');
-    await adoptGroupFromUrl();
+    await adoptCrewFromUrl();
     if (claimParam) openClaim(claimParam); // pop the claim modal (parallel with map init)
     L = await loadLeaflet();
 
@@ -433,6 +433,7 @@
 
   onDestroy(() => {
     if (interval) clearInterval(interval);
+    if (map) map.stopLocate(); // stop the geolocation watch started by toggleLocate
     if (typeof window !== 'undefined') {
       window.removeEventListener('keydown', onKeydown);
       window.removeEventListener('click', onDocClick);
@@ -571,9 +572,9 @@
         {:else}
           <div id="scanReader" class="scan-reader"></div>
         {/if}
-        <p class="{scanMsgClass}" style="margin-top:12px">{@html scanMsg}</p>
+        <p class="{scanMsgClass} scan-msg">{@html scanMsg}</p>
         {#if scanErr}
-          <div class="success-actions" style="margin-top:12px">
+          <div class="success-actions scan-actions">
             <button onclick={scanAnother}>Try again</button>
           </div>
         {/if}
@@ -594,14 +595,14 @@
         <p class="err">We couldn’t find a zone for that QR code.</p>
       {:else if claimView === 'signin'}
         <p>To claim <strong>{claimZoneName}</strong>, open the personal link your game host sent your crew, then scan again.</p>
-        <p class="muted" style="margin-top:12px;font-size:13px">Don’t have a link? Ask your host to set up your crew.</p>
+        <p class="muted modal-note">Don’t have a link? Ask your host to set up your crew.</p>
       {:else if claimView === 'claim'}
         <p>Claim <strong>{claimZoneName}</strong> for <strong>{currentCrew?.name}</strong> and score a point!</p>
-        <div class="success-actions" style="margin-top:8px">
+        <div class="success-actions claim-actions">
           <button onclick={doClaimFromModal} disabled={claiming}>{claiming ? 'Claiming…' : 'Claim this zone'}</button>
         </div>
-        {#if claimErrMsg}<p class="err" style="margin-top:10px">{claimErrMsg}</p>{/if}
-        {#if claimOtherCount}<p class="muted" style="margin-top:10px">Also claimed by {claimOtherCount} other {claimOtherCount === 1 ? 'crew' : 'crews'}.</p>{/if}
+        {#if claimErrMsg}<p class="err modal-msg">{claimErrMsg}</p>{/if}
+        {#if claimOtherCount}<p class="muted modal-msg">Also claimed by {claimOtherCount} other {claimOtherCount === 1 ? 'crew' : 'crews'}.</p>{/if}
       {:else if claimView === 'already'}
         <Celebration text={`Your crew already claimed ${claimZoneName}.`} confettiOn={false}>
           {#if claimOtherCount}<p class="muted">Also claimed by {claimOtherCount} other {claimOtherCount === 1 ? 'crew' : 'crews'}.</p>{/if}

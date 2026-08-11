@@ -36,12 +36,12 @@ export async function createZone(request, admin, overrides = {}) {
 // Must be called after an initial navigation so the origin exists.
 export async function signInAs(page, crew) {
   await page.addInitScript((c) => {
-    localStorage.setItem('geocache_group', JSON.stringify({ id: c.id, name: c.name, token: c.token }));
+    localStorage.setItem('geocache_crew', JSON.stringify({ id: c.id, name: c.name, token: c.token }));
   }, crew);
 }
 
 export async function signOut(page) {
-  await page.addInitScript(() => localStorage.removeItem('geocache_group'));
+  await page.addInitScript(() => localStorage.removeItem('geocache_crew'));
 }
 
 // Parse "rgb(a)" / "rgba" into [r,g,b,a].
