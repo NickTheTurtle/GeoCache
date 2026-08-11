@@ -133,6 +133,16 @@ sudo systemctl start geocache
 
 ## Troubleshooting
 
+- **Build hangs at "rendering chunks…" or gets killed:** the instance ran out of
+  memory (a `t4g.micro`/`t3.micro` has only 1 GB RAM and no swap). `ec2-setup.sh`
+  now adds a 2 GB swap file automatically. If you hit this building manually, add
+  swap first:
+  ```bash
+  sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+  sudo mkswap /swapfile && sudo swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+  ```
+  then re-run the build.
 - **Cert didn't issue / site not secure:** ensure ports **80 and 443** are open
   in the Security Group, then `sudo journalctl -u caddy -f` and
   `sudo systemctl reload caddy`.

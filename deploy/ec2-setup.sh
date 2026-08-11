@@ -66,6 +66,26 @@ fi
 PUBLIC_URL="https://${DOMAIN}"
 log "Using domain: ${DOMAIN}  (public IP: ${PUBLIC_IP:-unknown})"
 
+# ---- swap ------------------------------------------------------------------
+# The Vite/Rollup build peaks well above 1 GB while "rendering chunks". A
+# t4g.micro/t3.micro has only 1 GB RAM and no swap by default, so the build
+# hangs or is OOM-killed. Add a 2 GB swap file if the box has little RAM and
+# no swap yet.
+TOTAL_RAM_MB="$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)"
+SWAP_KB="$(awk '/SwapTotal/ {print $2}' /proc/meminfo)"
+if [[ "${SWAP_KB:-0}" -eq 0 && "${TOTAL_RAM_MB:-0}" -lt 2048 ]]; then
+  log "Adding 2 GB swap (RAM is ${TOTAL_RAM_MB} MB, no swap present)"
+  if [[ ! -f /swapfile ]]; then
+    fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+    chmod 600 /swapfile
+    mkswap /swapfile
+  fi
+  swapon /swapfile || true
+  grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+else
+  log "Swap OK (RAM ${TOTAL_RAM_MB} MB, swap ${SWAP_KB} KB)"
+fi
+
 # ---- base packages ---------------------------------------------------------
 log "Installing base packages"
 export DEBIAN_FRONTEND=noninteractive
