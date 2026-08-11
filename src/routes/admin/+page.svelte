@@ -25,7 +25,7 @@
   let imageData = $state(null);
   let imagePreview = $state(null);
   let removeImage = $state(false);
-  let zImgInput;
+  let zImgInput = $state();
 
   // Crew form
   let grpName = $state('');
@@ -48,7 +48,7 @@
   let draftMarkers = [];
   let draftPolygon = null;
   let zoneLayers = new Map();
-  let mapEl;
+  let mapEl = $state();
   let syncInterval = null;
 
   function authHeaders(extra = {}) {
@@ -504,7 +504,7 @@
 {/if}
 
 <!-- Reset confirmation modal -->
-<div class="modal-overlay" style:display={resetOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) resetOpen = false; }}>
+<div class="modal-overlay" role="presentation" style:display={resetOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) resetOpen = false; }}>
   <div class="modal admin-modal">
     <button class="modal-close" aria-label="Close" onclick={() => (resetOpen = false)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div class="modal-body">
@@ -520,7 +520,7 @@
 </div>
 
 <!-- Generic confirm modal -->
-<div class="modal-overlay" style:display={confirmOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) closeConfirm(false); }}>
+<div class="modal-overlay" role="presentation" style:display={confirmOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) closeConfirm(false); }}>
   <div class="modal admin-modal">
     <button class="modal-close" aria-label="Close" onclick={() => closeConfirm(false)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div class="modal-body">

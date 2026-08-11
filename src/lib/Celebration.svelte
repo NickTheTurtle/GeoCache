@@ -4,7 +4,7 @@
   let { text = '', confettiOn = true, children } = $props();
 
   const COLORS = ['#1f6f8f', '#2a7ea3', '#e0a53a', '#c96a4a', '#3f8f6a', '#e7c15a'];
-  const confetti = confettiOn
+  const confetti = $derived(confettiOn
     ? Array.from({ length: 42 }, (_, i) => ({
         id: i,
         left: Math.random() * 100,
@@ -15,7 +15,7 @@
         drift: (Math.random() * 120 - 60) | 0,
         round: Math.random() < 0.5,
       }))
-    : [];
+    : []);
 </script>
 
 <div class="scan-success">

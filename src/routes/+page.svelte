@@ -514,7 +514,7 @@
 </nav>
 
 <!-- How-to-play modal -->
-<div class="modal-overlay" style:display={helpOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) helpOpen = false; }}>
+<div class="modal-overlay" role="presentation" style:display={helpOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) helpOpen = false; }}>
   <div class="modal help-modal">
     <button class="modal-close" aria-label="Close" onclick={() => (helpOpen = false)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div class="modal-body">
@@ -531,7 +531,7 @@
 </div>
 
 <!-- Zone hint modal -->
-<div class="modal-overlay" style:display={zoneModalOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) closeZoneModal(); }}>
+<div class="modal-overlay" role="presentation" style:display={zoneModalOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) closeZoneModal(); }}>
   <div class="modal">
     <button class="modal-close" aria-label="Close" onclick={closeZoneModal}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div class="modal-map" bind:this={modalMapEl}></div>
@@ -549,7 +549,7 @@
 </div>
 
 <!-- QR scanner modal -->
-<div class="modal-overlay" style:display={scanOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) closeScan(); }}>
+<div class="modal-overlay" role="presentation" style:display={scanOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) closeScan(); }}>
   <div class="modal admin-modal">
     <button class="modal-close" aria-label="Close" onclick={closeScan}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div class="modal-body">
@@ -583,7 +583,7 @@
 </div>
 
 <!-- Claim modal (opened from a scanned QR link: /?c=<secret>) -->
-<div class="modal-overlay" style:display={claimOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) closeClaim(); }}>
+<div class="modal-overlay" role="presentation" style:display={claimOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) closeClaim(); }}>
   <div class="modal admin-modal">
     <button class="modal-close" aria-label="Close" onclick={closeClaim}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div class="modal-body">
