@@ -3,9 +3,10 @@ import { buildMapStyle } from './mapstyle.js';
 // Center of San Francisco, shared by every map view.
 export const SF_CENTER = [37.7749, -122.4194];
 
-// Basemap attribution (OpenFreeMap / OpenStreetMap).
+// Basemap attribution. Only the OpenStreetMap credit is legally required (ODbL);
+// the OpenFreeMap credit is optional.
 export const MAP_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://openfreemap.org">OpenFreeMap</a>';
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
 // Attach the MapLibre GL vector basemap to a Leaflet map. Pass attribution=null
 // for embedded maps (e.g. modal) that hide the attribution control.

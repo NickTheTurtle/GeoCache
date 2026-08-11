@@ -48,6 +48,12 @@ test('renderHint applies bold and italic markdown', () => {
   assert.equal(renderHint('an _italic_ word'), 'an <em>italic</em> word');
   // bold takes precedence over italic on double delimiters
   assert.equal(renderHint('**strong**'), '<strong>strong</strong>');
+  // nested emphasis stays well-formed
+  assert.equal(renderHint('**bold _and italic_**'), '<strong>bold <em>and italic</em></strong>');
+  assert.equal(renderHint('***both***'), '<em><strong>both</strong></em>');
+  // unbalanced/leftover delimiters degrade to literal, never crossed tags
+  assert.equal(renderHint('**'), '**');
+  assert.equal(renderHint('a * b'), 'a * b');
 });
 
 test('renderHint escapes HTML before applying markdown (XSS-safe)', () => {

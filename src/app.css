@@ -258,6 +258,12 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 
 /* Leaflet chrome */
 .leaflet-container { font-family: var(--font-body); }
+.leaflet-control-attribution {
+  font-size: 9px; padding: 0 4px; line-height: 1.5;
+  background: rgba(247, 241, 227, .7) !important;
+  color: rgba(15, 42, 68, .55);
+}
+.leaflet-control-attribution a { color: rgba(15, 42, 68, .7); }
 .leaflet-bar a, .leaflet-control-zoom a {
   background: var(--surface) !important;
   color: var(--navy) !important;

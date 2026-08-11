@@ -6,23 +6,87 @@ export function escapeHtml(s) {
 
 // Render a hint with limited, safe Markdown (bold + italic only). The text is
 // HTML-escaped FIRST so raw hint content can never inject markup, then the
-// bold/italic delimiters are turned into <strong>/<em>. Newlines are left as-is
-// (.popup-hint CSS uses white-space: pre-wrap). Escape a delimiter with a
-// backslash to keep it literal: "\*" -> * and "\_" -> _ (handy for fill-in
-// blanks like "\_ \_ \_" or "3 \* 4").
+// bold/italic delimiters (**/__ = bold, */_ = italic) are matched into
+// <strong>/<em>. Newlines are left as-is (.popup-hint CSS uses white-space:
+// pre-wrap). Escape a delimiter with a backslash to keep it literal: "\*" -> *
+// and "\_" -> _ (handy for fill-in blanks like "\_ \_ \_" or "3 \* 4").
+//
+// A delimiter-stack parser (rather than sequential regex replacement) keeps the
+// output well-formed: emphasis is always properly nested, and unbalanced or
+// mid-word delimiters degrade to literal text instead of leaking stray markup.
+const STAR = '\uE000';
+const UNDER = '\uE001';
+const isWordChar = (ch) => ch !== undefined && /[A-Za-z0-9]/.test(ch);
+
 export function renderHint(s) {
-  let out = escapeHtml(s == null ? '' : s);
-  // Set escaped delimiters aside as placeholders (private-use chars) so they are
-  // never parsed as markdown, then restore them as literals at the end.
-  const STAR = '\uE000';
-  const UNDER = '\uE001';
-  out = out.replace(/\\([*_])/g, (_, ch) => (ch === '*' ? STAR : UNDER));
-  out = out
-    .replace(/\*\*([\s\S]+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/__([\s\S]+?)__/g, '<strong>$1</strong>')
-    .replace(/\*([\s\S]+?)\*/g, '<em>$1</em>')
-    .replace(/(?<![A-Za-z0-9_])_([^_\n]+?)_(?![A-Za-z0-9_])/g, '<em>$1</em>');
+  const text = escapeHtml(s == null ? '' : s)
+    // Set escaped delimiters aside as private-use placeholders so they are never
+    // parsed as markdown; restored as literals at the end.
+    .replace(/\\([*_])/g, (_, ch) => (ch === '*' ? STAR : UNDER));
+
+  // Tokenize into text nodes and delimiter runs.
+  const nodes = [];
+  let buf = '';
+  const flush = () => { if (buf) { nodes.push({ text: buf }); buf = ''; } };
+  for (let i = 0; i < text.length; ) {
+    const ch = text[i];
+    if (ch === '*' || ch === '_') {
+      let j = i + 1;
+      while (text[j] === ch) j++;
+      // Underscores inside a word (snake_case) are literal, not emphasis: an
+      // opener needs a non-word char before it, a closer a non-word char after.
+      const canOpen = ch === '*' || !isWordChar(text[i - 1]);
+      const canClose = ch === '*' || !isWordChar(text[j]);
+      if (canOpen || canClose) {
+        flush();
+        nodes.push({ ch, count: j - i, canOpen, canClose });
+      } else {
+        buf += ch.repeat(j - i);
+      }
+      i = j;
+    } else {
+      buf += ch;
+      i++;
+    }
+  }
+  flush();
+
+  matchEmphasis(nodes);
+
+  let out = '';
+  for (const n of nodes) out += n.text ?? n.ch.repeat(n.count);
   return out.split(STAR).join('*').split(UNDER).join('_');
+}
+
+// Pair delimiter runs into <strong>/<em>, closest-opener first. Consumes two
+// markers for bold when both runs allow it, otherwise one for italic; leftover
+// markers stay literal. Mutates `nodes` in place.
+function matchEmphasis(nodes) {
+  const serialize = (from, to) => {
+    let s = '';
+    for (let k = from; k < to; k++) s += nodes[k].text ?? nodes[k].ch.repeat(nodes[k].count);
+    return s;
+  };
+  for (let ci = 0; ci < nodes.length; ci++) {
+    const closer = nodes[ci];
+    if (closer.text || !closer.canClose) continue;
+    let oi = ci - 1;
+    while (oi >= 0 && !(nodes[oi].canOpen && nodes[oi].ch === closer.ch)) oi--;
+    if (oi < 0) continue;
+    const opener = nodes[oi];
+    const strong = opener.count >= 2 && closer.count >= 2;
+    const use = strong ? 2 : 1;
+    const wrapped = strong
+      ? `<strong>${serialize(oi + 1, ci)}</strong>`
+      : `<em>${serialize(oi + 1, ci)}</em>`;
+    opener.count -= use;
+    closer.count -= use;
+    const replacement = [{ text: wrapped }];
+    if (closer.count > 0) replacement.push(closer);
+    nodes.splice(oi + 1, ci - oi, ...replacement);
+    if (opener.count === 0) nodes.splice(oi, 1);
+    ci = oi; // re-scan from the opener so leftover/outer markers can still match
+  }
 }
 
 // Shared zone polygon styling for the main map. Only zones the current crew has
