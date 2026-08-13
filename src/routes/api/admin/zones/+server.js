@@ -13,9 +13,9 @@ export async function POST({ request, url }) {
   const name = (body.name || '').trim();
   const hint = (body.hint || '').trim();
   const polygon = body.polygon;
-  if (!name) throw error(400, 'Zone name is required');
+  if (!name) throw error(400, 'Zone name is required.');
   if (!validPolygon(polygon)) {
-    throw error(400, 'Polygon must have 3+ points inside San Francisco');
+    throw error(400, 'Polygon must have 3+ points inside San Francisco.');
   }
   const img = decodeImage(body.imageData);
   const zone = db.createZone({ name, hint, polygon, image: img?.image, imageType: img?.imageType });

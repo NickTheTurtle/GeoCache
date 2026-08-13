@@ -9,7 +9,7 @@ export async function POST({ request, url }) {
   requireAdmin(request, url);
 
   const body = await request.json().catch(() => null);
-  if (body == null) throw error(400, 'File is not valid JSON');
+  if (body == null) throw error(400, 'File is not valid JSON.');
 
   const zones = Array.isArray(body) ? body : body.zones;
   const replace = Array.isArray(body) ? false : !!body.replace;
@@ -20,9 +20,9 @@ export async function POST({ request, url }) {
     const label = `Zone #${i + 1}${z?.name ? ` ("${String(z.name).trim()}")` : ''}`;
     const name = (z?.name || '').trim();
     const hint = (z?.hint || '').trim();
-    if (!name) throw error(400, `${label}: a name is required`);
+    if (!name) throw error(400, `${label}: a name is required.`);
     if (!validPolygon(z?.polygon)) {
-      throw error(400, `${label}: polygon must have 3+ points inside San Francisco`);
+      throw error(400, `${label}: polygon must have 3+ points inside San Francisco.`);
     }
     // Only imageData (a base64 data URL) is an image; the export's `image` URL
     // field is ignored.

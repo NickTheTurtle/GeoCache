@@ -86,10 +86,10 @@ export function decodeImage(dataUrl) {
   const m = /^data:([\w/+.-]+);base64,(.+)$/s.exec(dataUrl);
   if (!m) throw error(400, 'Invalid image data');
   const mime = m[1].toLowerCase();
-  if (!mime.startsWith('image/')) throw error(400, 'Only image files are allowed');
+  if (!mime.startsWith('image/')) throw error(400, 'Only image files are allowed.');
   // SVGs can carry scripts and are served inline from our own origin, so reject
   // them to avoid a stored-XSS vector via hint images.
-  if (mime === 'image/svg+xml') throw error(400, 'SVG images are not allowed');
+  if (mime === 'image/svg+xml') throw error(400, 'SVG images are not allowed.');
   let buf;
   try {
     buf = Buffer.from(m[2], 'base64');
@@ -97,7 +97,7 @@ export function decodeImage(dataUrl) {
     throw error(400, 'Invalid image data');
   }
   if (!buf.length) throw error(400, 'Invalid image data');
-  if (buf.length > MAX_IMAGE_BYTES) throw error(400, 'Image is too large (max 4MB)');
+  if (buf.length > MAX_IMAGE_BYTES) throw error(400, 'Image is too large (max 4MB).');
   return { image: buf, imageType: mime };
 }
 

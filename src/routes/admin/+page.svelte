@@ -225,7 +225,7 @@
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { toast(data.message || 'Claim failed'); return; }
-    toast(data.status === 'already-yours' ? 'Crew already claimed it' : 'Zone claimed');
+    toast(data.status === 'already-yours' ? 'Crew already claimed it.' : 'Zone claimed');
     loadZones();
   }
 
@@ -517,9 +517,9 @@
                     {/if}
                   </div>
                   {#if crews.length === 0}
-                    <div class="muted claim-note">Create a crew to assign claims.</div>
+                    <div class="muted claim-note">Create a crew to assign claims</div>
                   {:else if availableCrews(z).length === 0}
-                    <div class="muted claim-note">All crews have claimed this zone.</div>
+                    <div class="muted claim-note">All crews have claimed this zone</div>
                   {:else}
                     <div class="claim-row">
                       <select bind:value={claimSel[z.id]} aria-label={`Choose a crew to claim ${z.name}`}>
@@ -545,7 +545,7 @@
         <div class="err">{grpErr}</div>
         <div class="crew-list">
           {#if crews.length === 0}
-            <p class="muted">No crews yet.</p>
+            <p class="muted">No crews yet</p>
           {:else}
             {#each crews as c}
               <div class="zone-item">
@@ -601,7 +601,7 @@
       <p>This permanently clears all crews, claims and leaderboard points. What should happen to the zones and their QR codes?</p>
       <div class="modal-actions">
         <button class="secondary" type="button" onclick={() => doReset(true)}>Keep zones &amp; QR codes</button>
-        <button class="danger" type="button" onclick={() => doReset(false)}>Delete zones</button>
+        <button class="danger" type="button" onclick={() => doReset(false)}>Delete zones too</button>
       </div>
       <button class="link-btn" type="button" onclick={() => (resetOpen = false)}>Cancel</button>
     </div>

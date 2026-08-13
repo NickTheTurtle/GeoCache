@@ -16,7 +16,7 @@ export async function POST({ request, url }) {
   requireAdmin(request, url);
   const body = await request.json().catch(() => ({}));
   const name = (body.name || '').trim();
-  if (!name) throw error(400, 'Crew name is required');
+  if (!name) throw error(400, 'Crew name is required.');
   if (name.length > 40) throw error(400, 'Name too long');
   const crew = db.createCrew(name);
   return json(
