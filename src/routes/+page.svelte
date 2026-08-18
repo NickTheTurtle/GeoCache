@@ -36,6 +36,8 @@
   let claimErrMsg = $state('');
   let claiming = $state(false);
   let claimOtherCount = $state(0);
+  let claimPoints = $state(0);
+  let claimFirst = $state(false);
 
   // Imperative (non-reactive) map state
   let L = null;
@@ -208,7 +210,7 @@
       });
       const data = await res.json();
       if (res.ok && data.status === 'claimed') {
-        celebrate(`Claimed ${data.zone.name} for ${currentCrew.name}! +1 point.`);
+        celebrate(`Claimed ${data.zone.name} for ${currentCrew.name}! +${data.points} point${data.points === 1 ? '' : 's'}${data.first ? ' \u2014 first to solve!' : ''}.`);
         loadZones();
         loadLeaderboard();
       } else if (data.status === 'already-yours') {
@@ -372,6 +374,8 @@
       });
       const data = await res.json();
       if (res.ok && data.status === 'claimed') {
+        claimPoints = data.points;
+        claimFirst = data.first;
         claimView = 'claimed';
         loadZones();
         loadLeaderboard();
@@ -524,7 +528,7 @@
         <li><strong>Join your crew.</strong> Open the personal link your game host sent you. That signs you in as your crew.</li>
         <li><strong>Explore the map.</strong> Marked zones around San Francisco each hide an object. Tap a zone to read its hint.</li>
         <li><strong>Find the object.</strong> Use the hint (and your live location dot) to track it down in the real world.</li>
-        <li><strong>Scan its QR code.</strong> Scanning claims the zone for your crew and earns a point.</li>
+        <li><strong>Scan its QR code.</strong> Scanning claims the zone for your crew and scores points — be the first to solve it for a bonus.</li>
         <li><strong>Climb the leaderboard.</strong> Multiple crews can claim the same zone. Race to grab them all!</li>
       </ol>
     </div>
@@ -597,7 +601,7 @@
         <p>To claim <strong>{claimZoneName}</strong>, open the personal link your game host sent your crew, then scan again.</p>
         <p class="muted modal-note">Don’t have a link? Ask your host to set up your crew.</p>
       {:else if claimView === 'claim'}
-        <p>Claim <strong>{claimZoneName}</strong> for <strong>{currentCrew?.name}</strong> and score a point!</p>
+        <p>Claim <strong>{claimZoneName}</strong> for <strong>{currentCrew?.name}</strong> and score points — first to solve earns a bonus!</p>
         <div class="success-actions claim-actions">
           <button onclick={doClaimFromModal} disabled={claiming}>{claiming ? 'Claiming…' : 'Claim this zone'}</button>
         </div>
@@ -612,7 +616,7 @@
           </div>
         </Celebration>
       {:else if claimView === 'claimed'}
-        <Celebration text={`Claimed ${claimZoneName} for ${currentCrew?.name}! +1 point.`}>
+        <Celebration text={`Claimed ${claimZoneName} for ${currentCrew?.name}! +${claimPoints} point${claimPoints === 1 ? '' : 's'}${claimFirst ? ' \u2014 first to solve!' : ''}.`}>
           <div class="success-actions">
             <button onclick={() => { closeClaim(); setTab('board'); }}>See leaderboard</button>
             <button class="ghost" onclick={closeClaim}>Close</button>

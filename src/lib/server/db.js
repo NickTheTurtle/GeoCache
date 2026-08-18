@@ -8,6 +8,11 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const db = new DatabaseSync(path.join(DATA_DIR, 'geocache.db'));
 
+// Scoring: solving any puzzle is worth SOLVE_POINTS; the first crew to solve a
+// given puzzle earns an extra FIRST_BONUS on top.
+export const SOLVE_POINTS = 2;
+export const FIRST_BONUS = 1;
+
 db.exec(`
   PRAGMA journal_mode = WAL;
   PRAGMA foreign_keys = ON;
@@ -264,12 +269,20 @@ export function listZonesAdmin() {
 // race-proof (no check-then-insert window, no duplicate points). created_at is
 // stamped with millisecond precision (via the column default) so the
 // leaderboard can break ties by who reached their score first.
-// Returns { status: 'claimed' | 'already-yours' }
+// Returns { status, first, points } on a fresh claim, or { status: 'already-yours' }
+// when the crew had already claimed the zone. `first` is true when this crew was
+// the first to solve the puzzle (earning the FIRST_BONUS); `points` is the number
+// of points this claim earned.
 export function claimZone(zoneId, crewId) {
   const info = db
     .prepare('INSERT OR IGNORE INTO claims (zone_id, crew_id) VALUES (?, ?)')
     .run(zoneId, crewId);
-  return { status: info.changes > 0 ? 'claimed' : 'already-yours' };
+  if (info.changes === 0) return { status: 'already-yours' };
+  const firstRow = db
+    .prepare('SELECT crew_id FROM claims WHERE zone_id = ? ORDER BY created_at, id LIMIT 1')
+    .get(zoneId);
+  const first = !!firstRow && firstRow.crew_id === crewId;
+  return { status: 'claimed', first, points: SOLVE_POINTS + (first ? FIRST_BONUS : 0) };
 }
 
 export function unclaimZone(zoneId, crewId) {
@@ -280,18 +293,29 @@ export function unclaimZone(zoneId, crewId) {
 }
 
 export function leaderboard() {
-  // Rank by points, then break ties by whoever reached that score first: the
-  // crew whose most-recent claim (MAX created_at) is earliest ranks higher.
-  // Crews with no claims (NULL) fall to the bottom of the tie.
+  // Score = SOLVE_POINTS per puzzle solved + FIRST_BONUS for each puzzle this
+  // crew solved first. Rank by score, then by number of puzzles solved (more
+  // ranks higher), then break remaining ties by whoever reached that score
+  // first: the crew whose most-recent claim (MAX created_at) is earliest ranks
+  // higher. Crews with no claims (NULL) fall to the bottom of the tie.
   return db
     .prepare(
       `SELECT cr.id, cr.name,
-              COUNT(c.id) AS points,
+              COUNT(c.id) AS solved,
+              COUNT(c.id) * ${SOLVE_POINTS} + COUNT(f.crew_id) * ${FIRST_BONUS} AS points,
               MAX(c.created_at) AS last_claim_at
          FROM crews cr
          LEFT JOIN claims c ON c.crew_id = cr.id
+         LEFT JOIN (
+           SELECT c1.zone_id, c1.crew_id
+             FROM claims c1
+            WHERE c1.created_at = (
+              SELECT MIN(c2.created_at) FROM claims c2 WHERE c2.zone_id = c1.zone_id
+            )
+         ) f ON f.zone_id = c.zone_id AND f.crew_id = cr.id
         GROUP BY cr.id
         ORDER BY points DESC,
+                 solved DESC,
                  (last_claim_at IS NULL) ASC,
                  last_claim_at ASC,
                  cr.name ASC`

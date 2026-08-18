@@ -10,5 +10,5 @@ export async function POST({ request }) {
   if (!crew) throw error(400, 'Unknown crew. Open your crew link first.');
 
   const result = db.claimZone(zone.id, crew.id);
-  return json({ status: result.status, zone: { id: zone.id, name: zone.name } });
+  return json({ status: result.status, first: result.first, points: result.points, zone: { id: zone.id, name: zone.name } });
 }

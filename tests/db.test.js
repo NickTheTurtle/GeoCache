@@ -55,11 +55,31 @@ test('claimZone is idempotent and does not double-count points', () => {
   const g = db.createCrew('Claimers');
   const z = db.createZone({ name: 'Zone B', hint: '', polygon: POLY });
 
-  assert.equal(db.claimZone(z.id, g.id).status, 'claimed');
+  const first = db.claimZone(z.id, g.id);
+  assert.equal(first.status, 'claimed');
+  assert.equal(first.first, true);
+  assert.equal(first.points, 3); // 2 base + 1 first-solve bonus
   assert.equal(db.claimZone(z.id, g.id).status, 'already-yours'); // repeat is a no-op
 
   const row = db.leaderboard().find((r) => r.id === g.id);
-  assert.equal(row.points, 1); // still only one point
+  assert.equal(row.points, 3); // still one claim: 3 points
+});
+
+test('first crew to solve earns the bonus; later crews do not', () => {
+  const g1 = db.createCrew('First');
+  const g2 = db.createCrew('Second');
+  const z = db.createZone({ name: 'Bonus', hint: '', polygon: POLY });
+
+  const r1 = db.claimZone(z.id, g1.id);
+  const r2 = db.claimZone(z.id, g2.id);
+  assert.equal(r1.first, true);
+  assert.equal(r1.points, 3);
+  assert.equal(r2.first, false);
+  assert.equal(r2.points, 2);
+
+  const board = db.leaderboard();
+  assert.equal(board.find((r) => r.id === g1.id).points, 3);
+  assert.equal(board.find((r) => r.id === g2.id).points, 2);
 });
 
 test('a zone can be claimed by multiple crews', () => {
@@ -235,5 +255,5 @@ test('more points always outranks an earlier claim time', () => {
 
   const board = db.leaderboard();
   assert.equal(board[0].name, 'TwoPts'); // points beat time
-  assert.equal(board[0].points, 2);
+  assert.equal(board[0].points, 6); // 2 puzzles, both first-solves: 2*(2+1)
 });
