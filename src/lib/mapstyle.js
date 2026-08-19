@@ -33,6 +33,7 @@ export function buildMapStyle() {
         paint: { 'fill-color': PARK, 'fill-opacity': 0.85 } },
 
       { id: 'park', type: 'fill', source: 'openmaptiles', 'source-layer': 'park',
+        filter: ['!=', 'class', 'historic'],
         paint: { 'fill-color': PARK, 'fill-opacity': 0.9 } },
 
       { id: 'water', type: 'fill', source: 'openmaptiles', 'source-layer': 'water',
