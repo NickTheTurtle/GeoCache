@@ -36,6 +36,7 @@
   let claimErrMsg = $state('');
   let claiming = $state(false);
   let claimOtherCount = $state(0);
+  let claimRequirePresence = $state(false);
   let claimPoints = $state(0);
   let claimFirst = $state(false);
 
@@ -112,7 +113,7 @@
       zoneStatusHtml = `<span class="status">Unclaimed. Find the object &amp; scan its QR!</span>`;
     }
     zoneImageUrl = z.image || null;
-    zoneHintText = (z.hint || '').trim() || (zoneImageUrl ? '' : '(no hint provided)');
+    zoneHintText = (z.hint || '').trim() || (zoneImageUrl ? '' : '(blank)');
 
     if (!modalMap) {
       modalMap = L.map(modalMapEl, { zoomControl: false, attributionControl: false, dragging: true });
@@ -155,6 +156,54 @@
   }
 
   // ---------- QR scanner ----------
+  // Get the device's current position once (for geofenced/on-site zones).
+  function getPosition() {
+    return new Promise((resolve, reject) => {
+      if (typeof navigator === 'undefined' || !navigator.geolocation) {
+        reject(new Error('no-geolocation'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos.coords),
+        (err) => reject(err),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 }
+      );
+    });
+  }
+
+  // POST a claim, optionally including the crew's GPS coords.
+  async function postClaim(secret, coords) {
+    const body = { secret, crewToken: currentCrew.token };
+    if (coords) {
+      body.lat = coords.latitude;
+      body.lng = coords.longitude;
+      body.accuracy = coords.accuracy;
+    }
+    const res = await fetch('/api/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return { res, data: await res.json().catch(() => ({})) };
+  }
+
+  // Claim a zone, transparently supplying GPS for geofenced zones: try once,
+  // and if the server says it needs a location, fetch it and retry. Returns
+  // { res, data }, with data.status possibly 'location-denied' when GPS fails.
+  async function claimZoneBySecret(secret) {
+    let { res, data } = await postClaim(secret);
+    if (data.status === 'needs-location') {
+      let coords;
+      try {
+        coords = await getPosition();
+      } catch {
+        return { res, data: { status: 'location-denied', zone: data.zone } };
+      }
+      ({ res, data } = await postClaim(secret, coords));
+    }
+    return { res, data };
+  }
+
   async function openScan() {
     scanOpen = true;
     scanSuccess = false;
@@ -203,18 +252,21 @@
     scanMsg = 'Claiming\u2026';
     scanMsgClass = 'status';
     try {
-      const res = await fetch('/api/claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret, crewToken: currentCrew.token }),
-      });
-      const data = await res.json();
+      const { res, data } = await claimZoneBySecret(secret);
       if (res.ok && data.status === 'claimed') {
         celebrate(`Claimed ${data.zone.name} for ${currentCrew.name}! +${data.points} point${data.points === 1 ? '' : 's'}${data.first ? ' \u2014 first to solve!' : ''}.`);
         loadZones();
         loadLeaderboard();
       } else if (data.status === 'already-yours') {
         celebrate(`Your crew already claimed ${data.zone.name}.`, false);
+      } else if (data.status === 'too-far') {
+        scanMsg = `You\u2019re about ${data.distance}m from ${data.zone?.name || 'the zone'}. Get closer to claim it.`;
+        scanMsgClass = 'err';
+        scanErr = true;
+      } else if (data.status === 'location-denied') {
+        scanMsg = 'This zone can only be claimed on-site. Turn on location access and try again.';
+        scanMsgClass = 'err';
+        scanErr = true;
       } else {
         scanMsg = data.message || 'Could not claim this zone.';
         scanMsgClass = 'err';
@@ -348,6 +400,7 @@
       if (!res.ok) throw new Error();
       const z = await res.json();
       claimZoneName = z.name;
+      claimRequirePresence = !!z.requirePresence;
       const claimers = z.claimedBy || [];
       claimOtherCount = claimers.filter((c) => !currentCrew || c.id !== currentCrew.id).length;
       if (currentCrew && claimers.some((c) => c.id === currentCrew.id)) claimView = 'already';
@@ -367,12 +420,7 @@
     claimErrMsg = '';
     claiming = true;
     try {
-      const res = await fetch('/api/claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret: claimSecret, crewToken: currentCrew.token }),
-      });
-      const data = await res.json();
+      const { res, data } = await claimZoneBySecret(claimSecret);
       if (res.ok && data.status === 'claimed') {
         claimPoints = data.points;
         claimFirst = data.first;
@@ -381,6 +429,12 @@
         loadLeaderboard();
       } else if (data.status === 'already-yours') {
         claimView = 'already';
+      } else if (data.status === 'too-far') {
+        claimErrMsg = `You\u2019re about ${data.distance}m away. This zone must be claimed on-site \u2014 get closer and try again.`;
+        claiming = false;
+      } else if (data.status === 'location-denied') {
+        claimErrMsg = 'This zone can only be claimed on-site. Turn on location access and try again.';
+        claiming = false;
       } else {
         claimErrMsg = data.message || 'Could not claim this zone.';
         claiming = false;
@@ -446,12 +500,12 @@
 </script>
 
 <svelte:head>
-  <title>GeoCache SF: A San Francisco Treasure Hunt</title>
+  <title>SF Adventure Hunt: A San Francisco Treasure Hunt</title>
 </svelte:head>
 
 <div class="topbar">
   <div class="brand">
-    <h1><svg class="brand-ico" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v13M5.5 12A6.5 6.5 0 0 0 12 20a6.5 6.5 0 0 0 6.5-8M5.5 12H3l1.6-2M18.5 12H21l-1.6-2"/></svg> GeoCache SF</h1>
+    <h1><svg class="brand-ico" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v13M5.5 12A6.5 6.5 0 0 0 12 20a6.5 6.5 0 0 0 6.5-8M5.5 12H3l1.6-2M18.5 12H21l-1.6-2"/></svg> SF Adventure Hunt</h1>
     <span class="tagline">A San Francisco Treasure Hunt</span>
   </div>
   <div class="spacer"></div>
@@ -602,6 +656,7 @@
         <p class="muted modal-note">Don’t have a link? Ask your host to set up your crew.</p>
       {:else if claimView === 'claim'}
         <p>Claim <strong>{claimZoneName}</strong> for <strong>{currentCrew?.name}</strong> and score points — first to solve earns a bonus!</p>
+        {#if claimRequirePresence}<p class="muted modal-msg">📍 On-site only — you must be at the spot. We'll check your location when you claim.</p>{/if}
         <div class="success-actions claim-actions">
           <button onclick={doClaimFromModal} disabled={claiming}>{claiming ? 'Claiming…' : 'Claim this zone'}</button>
         </div>

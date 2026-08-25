@@ -63,6 +63,18 @@ export function pointInSF(lat, lng) {
   );
 }
 
+// Validate the admin-placed claim spot for an on-site zone. Returns
+// { presenceLat, presenceLng } (nulls when presence isn't required) or throws a 400.
+export function resolvePresence(body) {
+  if (!body?.requirePresence) return { presenceLat: null, presenceLng: null };
+  const presenceLat = Number(body.presenceLat);
+  const presenceLng = Number(body.presenceLng);
+  if (!Number.isFinite(presenceLat) || !Number.isFinite(presenceLng) || !pointInSF(presenceLat, presenceLng)) {
+    throw error(400, 'Set a claim spot inside San Francisco for on-site zones.');
+  }
+  return { presenceLat, presenceLng };
+}
+
 export function validPolygon(polygon) {
   if (!Array.isArray(polygon) || polygon.length < 3) return false;
   return polygon.every(
@@ -73,6 +85,19 @@ export function validPolygon(polygon) {
       Number.isFinite(p[1]) &&
       pointInSF(p[0], p[1])
   );
+}
+
+// Great-circle distance in metres between two lat/lng points. Used to check a
+// crew is near a zone's admin-placed claim spot.
+export function haversineMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
 }
 
 // Max decoded image size (~4MB) for a hint image.

@@ -10,7 +10,7 @@ const db = new DatabaseSync(path.join(DATA_DIR, 'geocache.db'));
 
 // Scoring: solving any puzzle is worth SOLVE_POINTS; the first crew to solve a
 // given puzzle earns an extra FIRST_BONUS on top.
-export const SOLVE_POINTS = 2;
+export const SOLVE_POINTS = 4;
 export const FIRST_BONUS = 1;
 
 db.exec(`
@@ -70,6 +70,19 @@ db.exec(`
   if (!cols.includes('image_ver')) db.exec('ALTER TABLE zones ADD COLUMN image_ver TEXT');
 }
 
+// Migration: per-zone geofence. When require_presence is 1, a crew can only
+// claim the zone while physically near the admin-placed claim spot
+// (presence_lat / presence_lng), checked server-side against the device's
+// reported GPS position. The spot is kept secret from players.
+{
+  const cols = db.prepare('PRAGMA table_info(zones)').all().map((c) => c.name);
+  if (!cols.includes('require_presence')) {
+    db.exec('ALTER TABLE zones ADD COLUMN require_presence INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!cols.includes('presence_lat')) db.exec('ALTER TABLE zones ADD COLUMN presence_lat REAL');
+  if (!cols.includes('presence_lng')) db.exec('ALTER TABLE zones ADD COLUMN presence_lng REAL');
+}
+
 function newToken(bytes = 9) {
   return crypto.randomBytes(bytes).toString('base64url');
 }
@@ -94,12 +107,26 @@ export function listCrews() {
 }
 
 // ---------- Zones ----------
-export function createZone({ name, hint, polygon, image, imageType }) {
+// requirePresence gates claiming on being near presenceLat/presenceLng (a
+// specific admin-placed spot). The spot is stored only when requirePresence.
+export function createZone({
+  name,
+  hint,
+  polygon,
+  image,
+  imageType,
+  requirePresence = false,
+  presenceLat = null,
+  presenceLng = null,
+}) {
   const secret = newToken(12);
   const hasImg = image && imageType;
+  const rp = requirePresence ? 1 : 0;
+  const pLat = rp && Number.isFinite(presenceLat) ? presenceLat : null;
+  const pLng = rp && Number.isFinite(presenceLng) ? presenceLng : null;
   const info = db
     .prepare(
-      'INSERT INTO zones (name, hint, polygon, secret, image, image_type, image_ver) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO zones (name, hint, polygon, secret, image, image_type, image_ver, require_presence, presence_lat, presence_lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
     .run(
       name,
@@ -108,20 +135,33 @@ export function createZone({ name, hint, polygon, image, imageType }) {
       secret,
       hasImg ? image : null,
       hasImg ? imageType : null,
-      hasImg ? newToken(4) : null
+      hasImg ? newToken(4) : null,
+      rp,
+      pLat,
+      pLng
     );
   return getZoneById(info.lastInsertRowid);
 }
 
 // image handling: pass a Buffer + imageType to replace the image, removeImage
 // to clear it, or neither to leave the existing image untouched.
-export function updateZone(id, { name, hint, polygon, image, imageType, removeImage }) {
-  db.prepare('UPDATE zones SET name = ?, hint = ?, polygon = ? WHERE id = ?').run(
-    name,
-    hint || '',
-    JSON.stringify(polygon),
-    id
-  );
+export function updateZone(id, {
+  name,
+  hint,
+  polygon,
+  image,
+  imageType,
+  removeImage,
+  requirePresence = false,
+  presenceLat = null,
+  presenceLng = null,
+}) {
+  const rp = requirePresence ? 1 : 0;
+  const pLat = rp && Number.isFinite(presenceLat) ? presenceLat : null;
+  const pLng = rp && Number.isFinite(presenceLng) ? presenceLng : null;
+  db.prepare(
+    'UPDATE zones SET name = ?, hint = ?, polygon = ?, require_presence = ?, presence_lat = ?, presence_lng = ? WHERE id = ?'
+  ).run(name, hint || '', JSON.stringify(polygon), rp, pLat, pLng, id);
   if (removeImage) {
     db.prepare('UPDATE zones SET image = NULL, image_type = NULL, image_ver = NULL WHERE id = ?').run(id);
   } else if (image && imageType) {
@@ -149,10 +189,15 @@ export function deleteZone(id) {
 // accepts. Secrets are omitted — fresh ones are minted on import.
 export function exportZones() {
   const rows = db
-    .prepare('SELECT name, hint, polygon, image, image_type FROM zones ORDER BY id')
+    .prepare('SELECT name, hint, polygon, image, image_type, require_presence, presence_lat, presence_lng FROM zones ORDER BY id')
     .all();
   return rows.map((r) => {
     const zone = { name: r.name, hint: r.hint, polygon: JSON.parse(r.polygon) };
+    if (r.require_presence) {
+      zone.requirePresence = true;
+      zone.presenceLat = r.presence_lat;
+      zone.presenceLng = r.presence_lng;
+    }
     if (r.image && r.image_type) {
       zone.imageData = `data:${r.image_type};base64,${Buffer.from(r.image).toString('base64')}`;
     }
@@ -178,8 +223,14 @@ export function importZones(zones, { replace = false } = {}) {
 // Strip the binary image columns from a raw zone row and parse its polygon,
 // giving the JSON shape the admin API returns for a single zone.
 export function zonePublic(zone) {
-  const { image, image_type, ...rest } = zone;
-  return { ...rest, polygon: JSON.parse(rest.polygon) };
+  const { image, image_type, require_presence, presence_lat, presence_lng, ...rest } = zone;
+  return {
+    ...rest,
+    requirePresence: !!require_presence,
+    presenceLat: presence_lat ?? null,
+    presenceLng: presence_lng ?? null,
+    polygon: JSON.parse(rest.polygon),
+  };
 }
 
 export function getZoneById(id) {
@@ -198,14 +249,14 @@ export function getZoneClaimers(zoneId) {
          FROM claims c
          JOIN crews cr ON cr.id = c.crew_id
         WHERE c.zone_id = ?
-        ORDER BY c.created_at`
+        ORDER BY c.id`
     )
     .all(zoneId);
 }
 
 // Group flat zone+claim rows (one per claim) into zones with a claimedBy array.
 // With includeSecret, each zone also carries its QR secret (admin only).
-function groupZoneRows(rows, { includeSecret = false } = {}) {
+function groupZoneRows(rows, { includeSecret = false, includePresence = false } = {}) {
   const byId = new Map();
   for (const r of rows) {
     let zone = byId.get(r.id);
@@ -216,9 +267,15 @@ function groupZoneRows(rows, { includeSecret = false } = {}) {
         hint: r.hint,
         polygon: JSON.parse(r.polygon),
         image: r.image_ver ? `/api/zones/${r.id}/image?v=${r.image_ver}` : null,
+        requirePresence: !!r.require_presence,
         claimedBy: [],
       };
       if (includeSecret) zone.secret = r.secret;
+      // The claim spot is the answer — only ever exposed to admins.
+      if (includePresence) {
+        zone.presenceLat = r.presence_lat ?? null;
+        zone.presenceLng = r.presence_lng ?? null;
+      }
       byId.set(r.id, zone);
     }
     if (r.claimed_crew_id) {
@@ -233,7 +290,7 @@ function groupZoneRows(rows, { includeSecret = false } = {}) {
 export function listZonesPublic() {
   const rows = db
     .prepare(
-      `SELECT z.id, z.name, z.hint, z.polygon, z.image_ver,
+      `SELECT z.id, z.name, z.hint, z.polygon, z.image_ver, z.require_presence,
               c.crew_id    AS claimed_crew_id,
               cr.name      AS claimed_crew_name,
               c.created_at AS claimed_at
@@ -250,7 +307,8 @@ export function listZonesPublic() {
 export function listZonesAdmin() {
   const rows = db
     .prepare(
-      `SELECT z.id, z.name, z.hint, z.polygon, z.secret, z.image_ver,
+      `SELECT z.id, z.name, z.hint, z.polygon, z.secret, z.image_ver, z.require_presence,
+              z.presence_lat, z.presence_lng,
               c.crew_id    AS claimed_crew_id,
               cr.name      AS claimed_crew_name,
               c.created_at AS claimed_at
@@ -260,7 +318,7 @@ export function listZonesAdmin() {
         ORDER BY z.id, c.created_at`
     )
     .all();
-  return groupZoneRows(rows, { includeSecret: true });
+  return groupZoneRows(rows, { includeSecret: true, includePresence: true });
 }
 
 // ---------- Claims ----------
@@ -278,8 +336,12 @@ export function claimZone(zoneId, crewId) {
     .prepare('INSERT OR IGNORE INTO claims (zone_id, crew_id) VALUES (?, ?)')
     .run(zoneId, crewId);
   if (info.changes === 0) return { status: 'already-yours' };
+  // First solver = the earliest-inserted claim. Order by the AUTOINCREMENT id
+  // (strict insertion order) rather than created_at: the wall clock isn't
+  // guaranteed monotonic between two rapid claims (notably on Windows), so a
+  // created_at sort can occasionally mis-credit the bonus to the later claim.
   const firstRow = db
-    .prepare('SELECT crew_id FROM claims WHERE zone_id = ? ORDER BY created_at, id LIMIT 1')
+    .prepare('SELECT crew_id FROM claims WHERE zone_id = ? ORDER BY id LIMIT 1')
     .get(zoneId);
   const first = !!firstRow && firstRow.crew_id === crewId;
   return { status: 'claimed', first, points: SOLVE_POINTS + (first ? FIRST_BONUS : 0) };
@@ -309,8 +371,8 @@ export function leaderboard() {
          LEFT JOIN (
            SELECT c1.zone_id, c1.crew_id
              FROM claims c1
-            WHERE c1.created_at = (
-              SELECT MIN(c2.created_at) FROM claims c2 WHERE c2.zone_id = c1.zone_id
+            WHERE c1.id = (
+              SELECT MIN(c2.id) FROM claims c2 WHERE c2.zone_id = c1.zone_id
             )
          ) f ON f.zone_id = c.zone_id AND f.crew_id = cr.id
         GROUP BY cr.id

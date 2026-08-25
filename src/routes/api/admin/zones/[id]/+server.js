@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import * as db from '$lib/server/db.js';
-import { requireAdmin, validPolygon, decodeImage } from '$lib/server/config.js';
+import { requireAdmin, validPolygon, decodeImage, resolvePresence } from '$lib/server/config.js';
 
 export async function PUT({ request, url, params }) {
   requireAdmin(request, url);
@@ -14,11 +14,15 @@ export async function PUT({ request, url, params }) {
   if (!validPolygon(polygon)) {
     throw error(400, 'Polygon must have 3+ points inside San Francisco.');
   }
+  const { presenceLat, presenceLng } = resolvePresence(body);
   const img = decodeImage(body.imageData);
   const zone = db.updateZone(id, {
     name,
     hint,
     polygon,
+    requirePresence: !!body.requirePresence,
+    presenceLat,
+    presenceLng,
     image: img?.image,
     imageType: img?.imageType,
     removeImage: !!body.removeImage,

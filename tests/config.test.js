@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validPolygon, pointInSF, decodeImage, isAdmin, makeAdminToken } from '../src/lib/server/config.js';
+import {
+  validPolygon,
+  pointInSF,
+  decodeImage,
+  isAdmin,
+  makeAdminToken,
+  haversineMeters,
+} from '../src/lib/server/config.js';
 
 const SF_TRIANGLE = [
   [37.77, -122.45],
@@ -83,4 +90,23 @@ test('makeAdminToken mints a token isAdmin accepts via ?t=; tampering is rejecte
 test('makeAdminToken tokens expire', () => {
   const expired = makeAdminToken(-1000); // already in the past
   assert.equal(isAdmin(fakeReq(), fakeUrl(`?t=${encodeURIComponent(expired)}`)), false);
+});
+
+test('haversineMeters returns ~0 for identical points', () => {
+  assert.ok(haversineMeters(37.765, -122.445, 37.765, -122.445) < 0.001);
+});
+
+test('haversineMeters measures a short east offset (~88m at SF latitude)', () => {
+  // 0.001 deg of longitude ≈ 88m at ~37.76°N.
+  const d = haversineMeters(37.765, -122.445, 37.765, -122.444);
+  assert.ok(d > 80 && d < 95, `expected ~88m, got ${d}`);
+});
+
+test('haversineMeters measures a north offset (~111m per 0.001 deg lat)', () => {
+  const d = haversineMeters(37.765, -122.445, 37.766, -122.445);
+  assert.ok(d > 105 && d < 118, `expected ~111m, got ${d}`);
+});
+
+test('haversineMeters grows for far-apart points', () => {
+  assert.ok(haversineMeters(37.70, -122.40, 37.765, -122.445) > 1000);
 });

@@ -20,6 +20,11 @@
   // Zone form
   let zName = $state('');
   let zHint = $state('');
+  let zRequirePresence = $state(false);
+  // Admin-placed claim spot for on-site zones (auto-dropped at polygon center
+  // when enabled, then draggable).
+  let presenceLat = $state(null);
+  let presenceLng = $state(null);
   let editingId = $state(null);
   let formErr = $state('');
   let ptCount = $state(0);
@@ -57,6 +62,10 @@
   let zoneLayers = new Map();
   let mapEl = $state();
   let syncInterval = null;
+  // Claim-spot marker + tolerance ring for on-site zones.
+  let presenceMarker = null;
+  let presenceCircle = null;
+  const PRESENCE_RADIUS_M = 40;
 
   function authHeaders(extra = {}) {
     return { 'x-admin-password': adminPw, ...extra };
@@ -102,6 +111,66 @@
     map = L.map(mapEl).setView(SF_CENTER, 12);
     addBaseLayer(L, map);
     map.on('click', (e) => addVertex(e.latlng));
+  }
+
+  // ---------- Claim spot (on-site zones) ----------
+  function setPresenceDot(lat, lng) {
+    presenceLat = lat;
+    presenceLng = lng;
+    const icon = L.divIcon({
+      className: '',
+      html: '<div style="width:16px;height:16px;border-radius:50%;background:#e0453f;border:2px solid #fff;box-shadow:0 0 0 2px #e0453f"></div>',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    });
+    if (presenceMarker) {
+      presenceMarker.setLatLng([lat, lng]);
+    } else {
+      presenceMarker = L.marker([lat, lng], { icon, draggable: true, keyboard: false }).addTo(map);
+      presenceMarker.on('drag', () => {
+        const ll = presenceMarker.getLatLng();
+        presenceLat = ll.lat;
+        presenceLng = ll.lng;
+        if (presenceCircle) presenceCircle.setLatLng(ll);
+      });
+    }
+    if (presenceCircle) {
+      presenceCircle.setLatLng([lat, lng]);
+    } else {
+      presenceCircle = L.circle([lat, lng], {
+        radius: PRESENCE_RADIUS_M,
+        color: '#e0453f', weight: 1, fillColor: '#e0453f', fillOpacity: 0.12,
+      }).addTo(map);
+    }
+  }
+
+  function clearPresenceDot() {
+    presenceLat = null;
+    presenceLng = null;
+    if (presenceMarker) { map.removeLayer(presenceMarker); presenceMarker = null; }
+    if (presenceCircle) { map.removeLayer(presenceCircle); presenceCircle = null; }
+  }
+
+  // Average the drafted polygon points (falls back to the map center) to get a
+  // starting spot the admin can then drag.
+  function polygonCenter() {
+    if (draftPoints.length) {
+      let lat = 0;
+      let lng = 0;
+      for (const [pLat, pLng] of draftPoints) { lat += pLat; lng += pLng; }
+      return [lat / draftPoints.length, lng / draftPoints.length];
+    }
+    const c = map.getCenter();
+    return [c.lat, c.lng];
+  }
+
+  function onTogglePresence() {
+    if (zRequirePresence) {
+      const [lat, lng] = polygonCenter();
+      setPresenceDot(lat, lng);
+    } else {
+      clearPresenceDot();
+    }
   }
 
   function addVertex(latlng) {
@@ -267,7 +336,12 @@
     const hint = zHint.trim();
     if (!name) { formErr = 'Enter a zone name.'; return; }
     if (draftPoints.length < 3) { formErr = 'Draw at least 3 points on the map.'; return; }
-    const payload = { name, hint, polygon: draftPoints };
+    if (zRequirePresence && (presenceLat == null || presenceLng == null)) {
+      formErr = 'Set a claim spot on the map for on-site zones.';
+      return;
+    }
+    const payload = { name, hint, polygon: draftPoints, requirePresence: zRequirePresence };
+    if (zRequirePresence) { payload.presenceLat = presenceLat; payload.presenceLng = presenceLng; }
     if (imageData) payload.imageData = imageData;
     if (removeImage && !imageData) payload.removeImage = true;
     const url = editingId ? `/api/admin/zones/${editingId}` : '/api/admin/zones';
@@ -291,6 +365,11 @@
     editingId = id;
     zName = z.name;
     zHint = z.hint || '';
+    zRequirePresence = !!z.requirePresence;
+    clearPresenceDot();
+    if (z.requirePresence && z.presenceLat != null && z.presenceLng != null) {
+      setPresenceDot(z.presenceLat, z.presenceLng);
+    }
     imageData = null;
     imagePreview = z.image || null;
     removeImage = false;
@@ -317,6 +396,8 @@
     editingId = null;
     zName = '';
     zHint = '';
+    zRequirePresence = false;
+    clearPresenceDot();
     formErr = '';
     imageData = null;
     imagePreview = null;
@@ -426,12 +507,12 @@
 </script>
 
 <svelte:head>
-  <title>Admin · GeoCache SF</title>
+  <title>Admin · SF Adventure Hunt</title>
 </svelte:head>
 
 <div class="topbar">
   <div class="brand">
-    <h1><svg class="brand-ico" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v13M5.5 12A6.5 6.5 0 0 0 12 20a6.5 6.5 0 0 0 6.5-8M5.5 12H3l1.6-2M18.5 12H21l-1.6-2"/></svg> GeoCache SF Admin</h1>
+    <h1><svg class="brand-ico" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v13M5.5 12A6.5 6.5 0 0 0 12 20a6.5 6.5 0 0 0 6.5-8M5.5 12H3l1.6-2M18.5 12H21l-1.6-2"/></svg> SF Adventure Hunt Admin</h1>
     <span class="tagline">Chart the zones · Mint the QR codes</span>
   </div>
   <div class="spacer"></div>
@@ -478,6 +559,10 @@
             <button type="button" class="secondary" onclick={clearImage}>Remove image</button>
           </div>
         {/if}
+        <label class="checkbox-row">
+          <input type="checkbox" bind:checked={zRequirePresence} onchange={onTogglePresence} />
+          <span>Require on-site presence</span>
+        </label>
         <div class="pt-count-row"><span class="pill">{ptCount} points</span></div>
         <div class="form-actions">
           <button class="secondary" type="button" onclick={undoPoint}>Undo</button>
@@ -496,6 +581,7 @@
             {#each zones as z}
               <div class="zone-item">
                 <strong>{z.name}</strong>
+                {#if z.requirePresence}<span class="pill" title="Claiming requires being at the admin-placed claim spot">On-site only</span>{/if}
                 <div class="row">
                   <img class="qr-thumb" src={`/api/admin/zones/${z.id}/qr?t=${encodeURIComponent(imgToken)}`} alt={`QR code for ${z.name}`} />
                   <div class="qr-actions">

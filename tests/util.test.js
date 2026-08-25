@@ -76,6 +76,23 @@ test('renderHint escapes delimiters with a backslash', () => {
   assert.equal(renderHint('\\_not italic\\_'), '_not italic_');
   // A lone underscore or mid-word underscore is not italics.
   assert.equal(renderHint('snake_case value'), 'snake_case value');
+  // Escaped carets/tildes stay literal, not sup/sub.
+  assert.equal(renderHint('2 \\^ 3'), '2 ^ 3');
+  assert.equal(renderHint('a \\~ b'), 'a ~ b');
+});
+
+test('renderHint renders superscript and subscript', () => {
+  assert.equal(renderHint('E = mc^2^'), 'E = mc<sup>2</sup>');
+  assert.equal(renderHint('H~2~O'), 'H<sub>2</sub>O');
+  assert.equal(renderHint('x^2^ + y~i~'), 'x<sup>2</sup> + y<sub>i</sub>');
+  // Content may not contain spaces or the delimiter, so stray marks stay literal.
+  assert.equal(renderHint('2 ^ 3'), '2 ^ 3');
+  assert.equal(renderHint('a ~ b'), 'a ~ b');
+  assert.equal(renderHint('lone ^ caret'), 'lone ^ caret');
+  // sup/sub content is HTML-escaped and never parsed as further markup (XSS-safe).
+  assert.equal(renderHint('a^<b>^'), 'a<sup>&lt;b&gt;</sup>');
+  // Emphasis around a superscript still works.
+  assert.equal(renderHint('**x^2^**'), '<strong>x<sup>2</sup></strong>');
 });
 
 test('renderHint renders safe [label](url) links', () => {

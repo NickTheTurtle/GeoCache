@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import * as db from '$lib/server/db.js';
-import { requireAdmin, validPolygon, decodeImage } from '$lib/server/config.js';
+import { requireAdmin, validPolygon, decodeImage, pointInSF } from '$lib/server/config.js';
 
 // Bulk-import zones from a JSON file: a bare array of zones, or
 // { zones: [...], replace: bool }. Validated up front so the import is
@@ -27,7 +27,26 @@ export async function POST({ request, url }) {
     // Only imageData (a base64 data URL) is an image; the export's `image` URL
     // field is ignored.
     const img = decodeImage(z?.imageData);
-    return { name, hint, polygon: z.polygon, image: img?.image, imageType: img?.imageType };
+    const requirePresence = !!z?.requirePresence;
+    let presenceLat = null;
+    let presenceLng = null;
+    if (requirePresence) {
+      presenceLat = Number(z?.presenceLat);
+      presenceLng = Number(z?.presenceLng);
+      if (!Number.isFinite(presenceLat) || !Number.isFinite(presenceLng) || !pointInSF(presenceLat, presenceLng)) {
+        throw error(400, `${label}: on-site zones need a claim spot inside San Francisco.`);
+      }
+    }
+    return {
+      name,
+      hint,
+      polygon: z.polygon,
+      requirePresence,
+      presenceLat,
+      presenceLng,
+      image: img?.image,
+      imageType: img?.imageType,
+    };
   });
 
   const imported = db.importZones(prepared, { replace });

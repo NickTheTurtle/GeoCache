@@ -5,5 +5,5 @@ import * as db from '$lib/server/db.js';
 export function GET({ params }) {
   const zone = db.getZoneBySecret(params.secret);
   if (!zone) throw error(404, 'Unknown QR code');
-  return json({ id: zone.id, name: zone.name, hint: zone.hint, claimedBy: db.getZoneClaimers(zone.id) });
+  return json({ id: zone.id, name: zone.name, hint: zone.hint, requirePresence: !!zone.require_presence, claimedBy: db.getZoneClaimers(zone.id) });
 }

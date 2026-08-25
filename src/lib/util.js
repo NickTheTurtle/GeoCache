@@ -9,18 +9,22 @@ export function escapeHtml(s) {
 // is rendered:
 //   - **bold** / __bold__  ->  <strong>
 //   - *italic* / _italic_  ->  <em>
+//   - ^text^               ->  <sup> (superscript; no spaces inside)
+//   - ~text~               ->  <sub> (subscript; no spaces inside)
 //   - [label](url)         ->  <a> (http/https/mailto only, opens in a new tab)
 // Newlines are left as-is (.popup-hint CSS uses white-space: pre-wrap). Escape a
-// delimiter with a backslash to keep it literal: "\*" -> * and "\_" -> _ (handy
-// for fill-in blanks like "\_ \_ \_" or "3 \* 4").
+// delimiter with a backslash to keep it literal: "\*" -> *, "\_" -> _, "\^" -> ^
+// and "\~" -> ~ (handy for fill-in blanks like "\_ \_ \_" or "3 \* 4").
 //
 // A delimiter-stack parser (rather than sequential regex replacement) keeps the
 // output well-formed: emphasis is always properly nested, and unbalanced or
 // mid-word delimiters degrade to literal text instead of leaking stray markup.
 const STAR = '\uE000';
 const UNDER = '\uE001';
-const LINK_OPEN = '\uE002';
-const LINK_CLOSE = '\uE003';
+const HOLE_OPEN = '\uE002';
+const HOLE_CLOSE = '\uE003';
+const CARET = '\uE004';
+const TILDE = '\uE005';
 const isWordChar = (ch) => ch !== undefined && /[A-Za-z0-9]/.test(ch);
 
 // Accept only http(s)/mailto links so a hint can't inject javascript:/data: URLs.
@@ -30,19 +34,30 @@ function safeUrl(url) {
 }
 
 export function renderHint(s) {
-  const links = [];
+  // Rendered fragments (links, sup, sub) are set aside as placeholders so their
+  // inner text is never touched by emphasis parsing, then restored at the end.
+  const holes = [];
+  const pushHole = (html) => {
+    holes.push(html);
+    return `${HOLE_OPEN}${holes.length - 1}${HOLE_CLOSE}`;
+  };
   const text = escapeHtml(s == null ? '' : s)
     // Pull [label](url) links out first (as placeholders) so URLs aren't touched
     // by emphasis parsing; unsafe or malformed links stay literal.
     .replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (m, label, url) => {
       const href = safeUrl(url);
       if (!href) return m;
-      links.push(`<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`);
-      return `${LINK_OPEN}${links.length - 1}${LINK_CLOSE}`;
+      return pushHole(`<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`);
     })
     // Set escaped delimiters aside as private-use placeholders so they are never
     // parsed as markdown; restored as literals at the end.
-    .replace(/\\([*_])/g, (_, ch) => (ch === '*' ? STAR : UNDER));
+    .replace(/\\([*_^~])/g, (_, ch) =>
+      ch === '*' ? STAR : ch === '_' ? UNDER : ch === '^' ? CARET : TILDE
+    )
+    // ^superscript^ and ~subscript~ (Pandoc-style): the content may not contain
+    // whitespace or the delimiter, so a stray ^ or ~ stays literal.
+    .replace(/\^([^\s^]+)\^/g, (_, inner) => pushHole(`<sup>${inner}</sup>`))
+    .replace(/~([^\s~]+)~/g, (_, inner) => pushHole(`<sub>${inner}</sub>`));
 
   // Tokenize into text nodes and delimiter runs.
   const nodes = [];
@@ -78,7 +93,9 @@ export function renderHint(s) {
   return out
     .split(STAR).join('*')
     .split(UNDER).join('_')
-    .replace(new RegExp(`${LINK_OPEN}(\\d+)${LINK_CLOSE}`, 'g'), (_, i) => links[i]);
+    .split(CARET).join('^')
+    .split(TILDE).join('~')
+    .replace(new RegExp(`${HOLE_OPEN}(\\d+)${HOLE_CLOSE}`, 'g'), (_, i) => holes[i]);
 }
 
 // Pair delimiter runs into <strong>/<em>, closest-opener first. Consumes two
