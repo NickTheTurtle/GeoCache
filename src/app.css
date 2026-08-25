@@ -114,6 +114,7 @@ label {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-height: 59px;
   padding: 8px 16px;
   background: var(--navy-deep);
   border-bottom: 2px solid var(--brass);
@@ -123,7 +124,7 @@ label {
 .topbar h1 {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 22px;
+  font-size: 26px;
   letter-spacing: .08em;
   text-transform: uppercase;
   color: #f4ead0;
@@ -141,9 +142,9 @@ label {
 .badge {
   background: #ffffff14;
   border: 1px solid #ffffff33;
-  padding: 6px 12px;
+  padding: 8px 16px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: .06em;
   text-transform: uppercase;
@@ -731,10 +732,10 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 .here-zone:hover { border-color: var(--brass); transform: translateY(-1px); }
 .here-tap { margin-top: 4px; font-size: 12px; color: var(--sea); font-weight: 600; }
 @media (max-width: 760px) {
-  .topbar { padding: 8px 12px; gap: 8px; }
-  .topbar h1 { font-size: 18px; }
+  .topbar { min-height: 55px; padding: 8px 12px; gap: 8px; }
+  .topbar h1 { font-size: 21px; }
   .tagline { font-size: 9px; letter-spacing: .16em; }
-  .badge { font-size: 10px; padding: 5px 9px; }
+  .badge { font-size: 12px; padding: 7px 13px; }
 
   .layout { flex-direction: column; height: calc(100% - 55px); }
   .layout #map { flex: 1; width: 100%; }
