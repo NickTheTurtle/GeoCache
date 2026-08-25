@@ -129,6 +129,7 @@ label {
   text-transform: uppercase;
   color: #f4ead0;
   margin: 0;
+  white-space: nowrap;
 }
 .topbar h1 .amp { color: var(--brass-bright); }
 .tagline {
