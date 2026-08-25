@@ -254,60 +254,60 @@
     try {
       const { res, data } = await claimZoneBySecret(secret);
       if (res.ok && data.status === 'claimed') {
-        celebrate(`Claimed ${data.zone.name} for ${currentCrew.name}! +${data.points} point${data.points === 1 ? '' : 's'}${data.first ? ' \u2014 first to solve!' : ''}.`);
-        loadZones();
-        loadLeaderboard();
-      } else if (data.status === 'already-yours') {
-        celebrate(`Your crew already claimed ${data.zone.name}.`, false);
-      } else if (data.status === 'too-far') {
-        scanMsg = `You\u2019re about ${data.distance}m from ${data.zone?.name || 'the zone'}. Get closer to claim it.`;
-        scanMsgClass = 'err';
-        scanErr = true;
-      } else if (data.status === 'location-denied') {
-        scanMsg = 'This zone can only be claimed on-site. Turn on location access and try again.';
-        scanMsgClass = 'err';
-        scanErr = true;
-      } else {
-        scanMsg = data.message || 'Could not claim this zone.';
-        scanMsgClass = 'err';
-        scanErr = true;
-      }
-    } catch {
-      scanMsg = 'Network error. Try again.';
-      scanMsgClass = 'err';
-      scanErr = true;
-    }
-  }
+	  celebrate(`Claimed ${data.zone.name} for ${currentCrew.name}! +${data.points} point${data.points === 1 ? '' : 's'}${data.first ? '. First to solve!' : ''}.`);
+	  loadZones();
+	  loadLeaderboard();
+	  } else if (data.status === 'already-yours') {
+	  celebrate(`Your crew already claimed ${data.zone.name}.`, false);
+	  } else if (data.status === 'too-far') {
+	  scanMsg = `This zone can only be claimed on-site. You\u2019re not in the right location.`;
+	  scanMsgClass = 'err';
+	  scanErr = true;
+	  } else if (data.status === 'location-denied') {
+	  scanMsg = 'This zone can only be claimed on-site. Turn on location access and try again.';
+	  scanMsgClass = 'err';
+	  scanErr = true;
+	  } else {
+	  scanMsg = data.message || 'Could not claim this zone.';
+	  scanMsgClass = 'err';
+	  scanErr = true;
+	  }
+	  } catch {
+	  scanMsg = 'Network error. Try again.';
+	  scanMsgClass = 'err';
+	  scanErr = true;
+	  }
+	  }
 
-  function stopScanner() {
-    if (!qrScanner) return Promise.resolve();
-    const s = qrScanner;
-    qrScanner = null;
-    return s.stop().then(() => s.clear()).catch(() => {});
-  }
-  function closeScan() { scanOpen = false; scanSuccess = false; scanErr = false; stopScanner(); }
+	  function stopScanner() {
+	  if (!qrScanner) return Promise.resolve();
+	  const s = qrScanner;
+	  qrScanner = null;
+	  return s.stop().then(() => s.clear()).catch(() => {});
+	  }
+	  function closeScan() { scanOpen = false; scanSuccess = false; scanErr = false; stopScanner(); }
 
-  // Flip the modal into its success view. Confetti fires only for a fresh claim.
-  function celebrate(text, confettiOn = true) {
-    successText = text;
-    successConfetti = confettiOn;
-    scanSuccess = true;
-  }
+	  // Flip the modal into its success view. Confetti fires only for a fresh claim.
+	  function celebrate(text, confettiOn = true) {
+	  successText = text;
+	  successConfetti = confettiOn;
+	  scanSuccess = true;
+	  }
 
-  async function scanAnother() {
-    await openScan();
-  }
+	  async function scanAnother() {
+	  await openScan();
+	  }
 
-  // ---------- Location ----------
-  function addLocateControl() {
-    const LocateControl = L.Control.extend({
-      options: { position: 'topleft' },
-      onAdd() {
-        const wrap = L.DomUtil.create('div', 'leaflet-bar');
-        const btn = L.DomUtil.create('a', 'locate-btn', wrap);
-        btn.href = '#';
-        btn.innerHTML =
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
+	  // ---------- Location ----------
+	  function addLocateControl() {
+	  const LocateControl = L.Control.extend({
+	  options: { position: 'topleft' },
+	  onAdd() {
+	  const wrap = L.DomUtil.create('div', 'leaflet-bar');
+	  const btn = L.DomUtil.create('a', 'locate-btn', wrap);
+	  btn.href = '#';
+	  btn.innerHTML =
+	  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
         btn.title = 'Show my location';
         btn.setAttribute('role', 'button');
         btn.setAttribute('aria-label', 'Show my location');
@@ -430,7 +430,7 @@
       } else if (data.status === 'already-yours') {
         claimView = 'already';
       } else if (data.status === 'too-far') {
-        claimErrMsg = `You\u2019re about ${data.distance}m away. This zone must be claimed on-site \u2014 get closer and try again.`;
+        claimErrMsg = `You\u2019re about ${data.distance}m away. You have to be on-site to claim this zone, so get closer and try again.`;
         claiming = false;
       } else if (data.status === 'location-denied') {
         claimErrMsg = 'This zone can only be claimed on-site. Turn on location access and try again.';
@@ -576,7 +576,7 @@
         <li><strong>Join your crew.</strong> Open the personal link your game host sent you. That signs you in as your crew.</li>
         <li><strong>Explore the map.</strong> Marked zones around San Francisco each hide an object. Tap a zone to read its hint.</li>
         <li><strong>Find the object.</strong> Use the hint (and your live location dot) to track it down in the real world.</li>
-        <li><strong>Scan its QR code.</strong> Scanning claims the zone for your crew and scores points — be the first to solve it for a bonus.</li>
+        <li><strong>Scan its QR code.</strong> Scanning claims the zone for your crew and scores points. Be the first to solve it for a bonus.</li>
         <li><strong>Climb the leaderboard.</strong> Multiple crews can claim the same zone. Race to grab them all!</li>
       </ol>
     </div>
@@ -649,8 +649,8 @@
         <p>To claim <strong>{claimZoneName}</strong>, open the personal link your game host sent your crew, then scan again.</p>
         <p class="muted modal-note">Don’t have a link? Ask your host to set up your crew.</p>
       {:else if claimView === 'claim'}
-        <p>Claim <strong>{claimZoneName}</strong> for <strong>{currentCrew?.name}</strong> and score points — first to solve earns a bonus!</p>
-        {#if claimRequirePresence}<p class="muted modal-msg">📍 On-site only — you must be at the spot. We'll check your location when you claim.</p>{/if}
+        <p>Claim <strong>{claimZoneName}</strong> for <strong>{currentCrew?.name}</strong> and score points. First to solve earns a bonus!</p>
+        {#if claimRequirePresence}<p class="muted modal-msg">📍 On-site only: you must be at the spot. We'll check your location when you claim.</p>{/if}
         <div class="success-actions claim-actions">
           <button onclick={doClaimFromModal} disabled={claiming}>{claiming ? 'Claiming…' : 'Claim this zone'}</button>
         </div>
@@ -665,7 +665,7 @@
           </div>
         </Celebration>
       {:else if claimView === 'claimed'}
-        <Celebration text={`Claimed ${claimZoneName} for ${currentCrew?.name}! +${claimPoints} point${claimPoints === 1 ? '' : 's'}${claimFirst ? ' \u2014 first to solve!' : ''}.`}>
+        <Celebration text={`Claimed ${claimZoneName} for ${currentCrew?.name}! +${claimPoints} point${claimPoints === 1 ? '' : 's'}${claimFirst ? '. First to solve!' : ''}.`}>
           <div class="success-actions">
             <button onclick={() => { closeClaim(); setTab('board'); }}>See leaderboard</button>
             <button class="ghost" onclick={closeClaim}>Close</button>

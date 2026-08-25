@@ -173,7 +173,7 @@ test('importZones is atomic: a bad zone rolls back the whole batch', () => {
   db.resetGame({ keepZones: false });
   db.createZone({ name: 'Survivor', hint: '', polygon: POLY });
   // Second zone has an invalid polygon (not JSON-stringifiable cleanly is fine,
-  // but a null polygon makes JSON.stringify store 'null' — force a throw by
+  // but a null polygon makes JSON.stringify store 'null', so force a throw by
   // passing a value that breaks the insert path). Use a circular reference.
   const bad = {};
   bad.self = bad;

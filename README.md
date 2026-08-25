@@ -6,13 +6,13 @@ objects, scan the codes, and score points.
 
 ## Features
 
-- **One-click registration** — each crew gets a personal link (`/?g=<token>`)
+- **One-click registration:** each crew gets a personal link (`/?g=<token>`)
   that identifies them so scans claim zones for them.
-- **SF map** (Leaflet + OpenStreetMap) — every zone is a boundary; click to zoom
+- **SF map** (Leaflet + OpenStreetMap): every zone is a boundary; click to zoom
   in and read its hint.
-- **QR claiming** — each zone has a unique QR code; scanning claims it (+1 point).
-- **Leaderboard** — live ranking by points.
-- **Admin page** — draw/edit zones, write hints, bulk import/export, and
+- **QR claiming:** each zone has a unique QR code; scanning claims it for points.
+- **Leaderboard:** live ranking by points.
+- **Admin page:** draw/edit zones, write hints, bulk import/export, and
   generate a QR code per zone.
 
 ## Run locally
@@ -24,11 +24,11 @@ $env:ADMIN_PASSWORD="s3cret"   # optional; defaults to "changeme"
 npm start                       # runs server.js, opens on http://localhost:3000
 ```
 
-Admin is at `/admin`. For hot-reload dev use `npm run dev` (port 5173) — but the
+Admin is at `/admin`. For hot-reload dev use `npm run dev` (port 5173), but the
 QR camera scanner needs a secure context, so it only works from `npm start` or
 localhost, not the dev server over the LAN.
 
-Requires **Node.js ≥ 22.5** (uses built-in `node:sqlite` — no external database).
+Requires **Node.js ≥ 22.5** (uses the built-in `node:sqlite`, so no external database).
 
 ### HTTPS on your LAN (for phones)
 
@@ -41,7 +41,7 @@ that, `npm start` serves HTTPS on 443 (and `PORT`) with HTTP→HTTPS redirect on
 
 ```bash
 npm test          # unit tests (node:test) for db/config/util
-npm run test:e2e  # Playwright UI tests — run `npm run build` first
+npm run test:e2e  # Playwright UI tests; run `npm run build` first
 ```
 
 E2E tests (`e2e/`) drive locally-installed Microsoft Edge (no browser download)
@@ -58,7 +58,7 @@ console, and mobile layout, and assert text legibility (contrast).
 
 ## Bulk zones: import / export
 
-The admin console can import/export zones as JSON — handy for generating a whole
+The admin console can import/export zones as JSON, which is handy for generating a whole
 map at once (e.g. with an AI assistant).
 
 - **Export** downloads `geocache-zones.json` (a re-importable backup; hint images
@@ -73,7 +73,7 @@ Format (see [`zones.example.json`](./zones.example.json)):
 {
   "zones": [
     {
-      "name": "Golden Gate Park — Windmill",
+      "name": "Golden Gate Park Windmill",
       "hint": "Look near the bench facing the **Dutch windmill**.",
       "polygon": [[37.7699, -122.5108], [37.7712, -122.5108], [37.7712, -122.5090]],
       "imageData": "data:image/png;base64,…  (optional)"
@@ -99,12 +99,12 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 | `PORT`            | `3000`     | Port the server listens on.             |
 | `ADMIN_PASSWORD`  | `changeme` | Admin page password. **Change this.**   |
 | `DATA_DIR`        | `./data`   | Directory for the SQLite database file. |
-| `PUBLIC_BASE_URL` | —          | Public URL encoded in QR codes.         |
+| `PUBLIC_BASE_URL` | (none)     | Public URL encoded in QR codes.         |
 
 ## Deploying
 
 The app is a standard Node service that needs **persistent disk** for the SQLite
-database — so serverless hosts (Amplify, Lambda) won't work.
+database, so serverless hosts (Amplify, Lambda) won't work.
 
 - **AWS EC2** (recommended): see [`deploy/README.md`](./deploy/README.md) for a
   one-command setup script (Node + Caddy + auto-HTTPS).

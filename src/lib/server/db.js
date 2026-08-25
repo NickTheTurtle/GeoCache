@@ -186,7 +186,7 @@ export function deleteZone(id) {
 
 // ---------- Bulk import / export ----------
 // Export every zone in the portable, re-importable shape the import endpoint
-// accepts. Secrets are omitted — fresh ones are minted on import.
+// accepts. Secrets are omitted, since fresh ones are minted on import.
 export function exportZones() {
   const rows = db
     .prepare('SELECT name, hint, polygon, image, image_type, require_presence, presence_lat, presence_lng FROM zones ORDER BY id')
@@ -271,7 +271,7 @@ function groupZoneRows(rows, { includeSecret = false, includePresence = false } 
         claimedBy: [],
       };
       if (includeSecret) zone.secret = r.secret;
-      // The claim spot is the answer — only ever exposed to admins.
+      // The claim spot is the answer, so it is only ever exposed to admins.
       if (includePresence) {
         zone.presenceLat = r.presence_lat ?? null;
         zone.presenceLng = r.presence_lng ?? null;

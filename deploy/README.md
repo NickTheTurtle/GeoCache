@@ -2,7 +2,7 @@
 
 This app is a long-lived Node server that stores everything in a SQLite file on
 disk. That means **serverless hosts (AWS Amplify, App Runner, Lambda) will not
-work** — their filesystem is ephemeral, so your data would vanish on every
+work**: their filesystem is ephemeral, so your data would vanish on every
 restart and the custom `server.js` never runs. A small always-on VM with a
 persistent disk is the right fit. EC2's free tier covers this at **$0 for 12
 months**.
@@ -10,7 +10,7 @@ months**.
 The `ec2-setup.sh` script does everything: installs Node + [Caddy](https://caddyserver.com/),
 builds the app, runs it as a `systemd` service, and fronts it with Caddy for
 **automatic HTTPS**. HTTPS matters because the in-app QR **camera scanner needs a
-secure context** — without it, only manual link-based claiming works.
+secure context**, and without it only manual link-based claiming works.
 
 No domain? No problem: the script defaults to a free `<public-ip>.sslip.io`
 hostname that still gets a real Let's Encrypt certificate.
@@ -25,11 +25,11 @@ In the AWS Console → **EC2** → **Launch instance**:
 | --- | --- |
 | Name | `geocache` |
 | AMI | **Ubuntu Server 24.04 LTS** |
-| Instance type | **t4g.micro** (Arm, free-tier eligible) — or `t3.micro` (x86) |
+| Instance type | **t4g.micro** (Arm, free-tier eligible), or `t3.micro` (x86) |
 | Key pair | Create/select one so you can SSH in |
 | Storage | 20 GiB gp3 (within the 30 GiB free-tier allowance) |
 
-**Network / Security group** — allow inbound:
+**Network / Security group:** allow inbound:
 
 | Type | Port | Source |
 | --- | --- | --- |
@@ -37,7 +37,7 @@ In the AWS Console → **EC2** → **Launch instance**:
 | HTTP | 80 | `0.0.0.0/0` (and `::/0`) |
 | HTTPS | 443 | `0.0.0.0/0` (and `::/0`) |
 
-Port 80 must be open too — Caddy uses it for the Let's Encrypt challenge and to
+Port 80 must be open too, since Caddy uses it for the Let's Encrypt challenge and to
 redirect to HTTPS.
 
 > If you pick `t4g.micro`, confirm it's free-tier eligible in your account/region;
@@ -111,7 +111,7 @@ sudo -E bash /opt/geocache/deploy/update.sh
 ### Back up / restore the database
 
 ```bash
-# Back up (safe while running — copies the DB and WAL)
+# Back up (safe while running; copies the DB and WAL)
 sudo cp /var/lib/geocache/geocache.db* ~/geocache-backup/
 
 # Restore
@@ -148,5 +148,5 @@ sudo systemctl start geocache
   `sudo systemctl reload caddy`.
 - **Camera scanner won't open on phones:** you must be on the `https://` URL
   (the sslip.io or your domain), not the raw IP.
-- **502 from Caddy:** the app isn't up — `sudo systemctl status geocache` and
+- **502 from Caddy:** the app isn't up. Run `sudo systemctl status geocache` and
   check `sudo journalctl -u geocache -e`.
