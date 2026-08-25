@@ -500,36 +500,30 @@
 </script>
 
 <svelte:head>
-  <title>SF Adventure Hunt: A San Francisco Treasure Hunt</title>
+  <title>Adventure Hunt</title>
 </svelte:head>
 
 <div class="topbar">
   <div class="brand">
-    <h1><svg class="brand-ico" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v13M5.5 12A6.5 6.5 0 0 0 12 20a6.5 6.5 0 0 0 6.5-8M5.5 12H3l1.6-2M18.5 12H21l-1.6-2"/></svg> SF Adventure Hunt</h1>
-    <span class="tagline">A San Francisco Treasure Hunt</span>
+    <h1><svg class="brand-ico" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v13M5.5 12A6.5 6.5 0 0 0 12 20a6.5 6.5 0 0 0 6.5-8M5.5 12H3l1.6-2M18.5 12H21l-1.6-2"/></svg> Adventure Hunt</h1>
   </div>
   <div class="spacer"></div>
-  <div class="crew-menu" class:signed-in={currentCrew}>
-    <button
-      class="badge"
-      type="button"
-      aria-haspopup="true"
-      aria-expanded={menuOpen}
-      disabled={!currentCrew}
-      onclick={(e) => { e.stopPropagation(); if (currentCrew) menuOpen = !menuOpen; }}
-    >
-      {#if currentCrew}
+  {#if currentCrew}
+    <div class="crew-menu signed-in">
+      <button
+        class="badge"
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={menuOpen}
+        onclick={(e) => { e.stopPropagation(); menuOpen = !menuOpen; }}
+      >
         Crew: <strong>{currentCrew.name}</strong><span class="caret" aria-hidden="true"></span>
-      {:else}
-        Not signed in
-      {/if}
-    </button>
-    {#if currentCrew}
+      </button>
       <div class="crew-dropdown" role="menu" hidden={!menuOpen}>
         <button type="button" role="menuitem" onclick={signOut}>Sign out</button>
       </div>
-    {/if}
-  </div>
+    </div>
+  {/if}
 </div>
 
 <div class="layout">
