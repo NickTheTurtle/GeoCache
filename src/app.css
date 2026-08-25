@@ -30,6 +30,7 @@
 html, body {
   margin: 0;
   height: 100%;
+  overflow-x: hidden;
   font-family: var(--font-body);
   background: var(--paper);
   color: var(--ink);
@@ -120,7 +121,7 @@ label {
   border-bottom: 2px solid var(--brass);
   color: #eaf0f5;
 }
-.brand { display: flex; flex-direction: column; line-height: 1; }
+.brand { display: flex; flex-direction: column; line-height: 1; min-width: 0; }
 .topbar h1 {
   font-family: var(--font-display);
   font-weight: 600;
@@ -129,8 +130,14 @@ label {
   text-transform: uppercase;
   color: #f4ead0;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.topbar h1 .brand-ico { flex: none; }
 .topbar h1 .amp { color: var(--brass-bright); }
 .tagline {
   font-size: 10px;
@@ -151,7 +158,16 @@ label {
   text-transform: uppercase;
   color: #cdd9e2;
 }
-.badge strong { color: var(--brass-bright); font-weight: 700; }
+.badge strong {
+  color: var(--brass-bright);
+  font-weight: 700;
+  display: inline-block;
+  max-width: 32vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
 
 /* Round "?" help button in the top bar */
 .icon-btn {
@@ -175,7 +191,7 @@ label {
 .icon-btn:hover { background: var(--brass); color: var(--navy-deep); transform: translateY(-1px); }
 
 /* Crew badge dropdown in the top bar */
-.crew-menu { position: relative; margin-left: 10px; }
+.crew-menu { position: relative; margin-left: 10px; flex: none; max-width: 55%; }
 .crew-menu .badge { cursor: default; display: inline-flex; align-items: center; gap: 6px; }
 .crew-menu.signed-in .badge { cursor: pointer; }
 .crew-menu.signed-in .badge:hover { background: #ffffff26; }
@@ -773,6 +789,7 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   }
   .tab {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -790,7 +807,7 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   }
   .tab:hover, .tab:active { background: none; transform: none; }
   .tab .tab-ico { width: 24px; height: 24px; display: block; transition: color .15s; }
-  .tab .tab-lbl { line-height: 1; }
+  .tab .tab-lbl { line-height: 1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tab.active { color: var(--navy); background: none; border: none; }
 
   /* Leaderboard tab: hide the map, show the leaderboard full-screen */
