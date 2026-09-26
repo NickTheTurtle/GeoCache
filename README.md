@@ -100,6 +100,20 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 | `ADMIN_PASSWORD`  | `changeme` | Admin page password. **Change this.**   |
 | `DATA_DIR`        | `./data`   | Directory for the SQLite database file. |
 | `PUBLIC_BASE_URL` | (none)     | Public URL encoded in QR codes.         |
+| `MAZE_WORD`       | `TREASURE` | Answer spelled along the `/maze` path.  |
+| `MAZE_SEED`       | `geocache` | Change for a different maze layout.     |
+| `MAZE_SIZE`       | `15`       | `/maze` grid: `15` or `WxH` (5 to 40).  |
+
+## Maze puzzle (`/maze`)
+
+`/maze` is a standalone, zero-JavaScript maze page (inline CSS only, no external
+assets), built so it still works when captured by the Wayback Machine. Players
+move by clicking open neighbouring squares, which works through a CSS radio-button
+trick. The letters of `MAZE_WORD` sit in order along the one true path from
+entrance to exit, and decoy letters hide in dead ends. A letter is visible only
+while you stand on it. The same env vars always produce the same maze, so every
+capture matches. The letters are in the page source, so it resists casual
+guessing but won't stop anyone who reads the HTML.
 
 ## Deploying
 
