@@ -100,6 +100,9 @@ sudo systemctl restart geocache     # restart
 - **App code:** `/opt/geocache`
 - **Config/secrets:** `/etc/geocache.env` (root-only, contains `ADMIN_PASSWORD`)
 - **Database:** `/var/lib/geocache/geocache.db` (survives restarts, redeploys, and reboots)
+- **Caddy site:** `/etc/caddy/sites/geocache.caddy`. The main `/etc/caddy/Caddyfile`
+  only imports `/etc/caddy/sites/*.caddy`, so other apps on the same box (like
+  the maze) keep their own files there and re-running this setup won't remove them.
 
 ### Update to the latest code
 

@@ -206,21 +206,30 @@ systemctl enable geocache
 systemctl restart geocache
 
 # ---- Caddy reverse proxy + auto HTTPS -------------------------------------
+# Each app on this box owns one file in /etc/caddy/sites/ and the main
+# Caddyfile only holds global options plus an import of that directory, so
+# rewriting it here never drops sites that other apps (e.g. the maze) added.
 log "Configuring Caddy for ${DOMAIN}"
+mkdir -p /etc/caddy/sites
+cat > /etc/caddy/sites/geocache.caddy <<EOF
+${DOMAIN} {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:${PORT}
+}
+EOF
 {
+  echo "# Managed by deploy scripts. Put each site in /etc/caddy/sites/<app>.caddy."
   if [[ -n "${ACME_EMAIL:-}" ]]; then
     echo "{"
     echo "    email ${ACME_EMAIL}"
     echo "}"
   fi
-  echo "${DOMAIN} {"
-  echo "    encode zstd gzip"
-  echo "    reverse_proxy 127.0.0.1:${PORT}"
-  echo "}"
+  echo "import /etc/caddy/sites/*.caddy"
 } > /etc/caddy/Caddyfile
+caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
 systemctl enable caddy
-systemctl restart caddy
+systemctl reload caddy 2>/dev/null || systemctl restart caddy
 
 # ---- done ------------------------------------------------------------------
 sleep 2
