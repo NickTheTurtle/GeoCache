@@ -2,9 +2,12 @@
 //
 // The page is fully self-contained (inline CSS, no scripts or external assets)
 // so it survives being captured by the Internet Archive's Wayback Machine.
-// Movement uses the CSS "radio button" trick: every cell is a hidden radio
-// input, the checked one is the player's position, and generated sibling
-// selectors (#cN:checked ~ .b .cM) enable clicks only on open neighbouring cells.
+// Movement uses fragment links and CSS :target. Each cell holds a link to
+// #cN, and a hidden marker element with that id comes before the board, so the
+// targeted marker is the player's position. Generated sibling selectors
+// (#cN:target ~ .b .cM a) reveal only the links into open neighbouring cells.
+// Hidden links can't be clicked and drop out of the Tab order, so mouse, touch
+// and keyboard (Tab to pick a square, Enter to step) all respect the walls.
 //
 // Letters of the answer sit, in order, on the one true path from entrance to
 // exit; decoy letters hide in dead ends. A letter only shows while standing on it.
@@ -161,19 +164,24 @@ main{max-width:760px;margin:0 auto;padding:24px 16px 48px;text-align:center}
 h1{font-size:2.2rem;letter-spacing:.12em;text-transform:uppercase;margin:.2em 0}
 .intro{max-width:34em;margin:0 auto 1.2em;text-align:left}
 .intro li{margin:.2em 0}
-.mz input{display:none}
+.mk{display:none}
 .b{display:inline-block;--s:min(calc((100vw - 40px)/var(--w)),34px)}
 .io{font:bold 13px/1.4 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#7a4b12}
 .in{text-align:left}.out{text-align:right}
 .g{display:grid;grid-template-columns:repeat(var(--w),var(--s));background:#fbf4e2;box-shadow:0 2px 10px rgba(60,35,5,.25)}
-.c{width:var(--s);height:var(--s);display:flex;align-items:center;justify-content:center;border:0 solid #2b1d0e;pointer-events:none;user-select:none;-webkit-user-select:none;font:bold calc(var(--s)*.6)/1 system-ui,sans-serif}
+.c{position:relative;width:var(--s);height:var(--s);display:flex;align-items:center;justify-content:center;border:0 solid #2b1d0e;user-select:none;-webkit-user-select:none;font:bold calc(var(--s)*.6)/1 system-ui,sans-serif}
 .n{border-top-width:2px}.w{border-left-width:2px}.e{border-right-width:2px}.s{border-bottom-width:2px}
 .c b{visibility:var(--vis,hidden);color:#fff}
-.c:hover{outline:2px solid #c9731a;outline-offset:-4px}
+.c a{position:absolute;inset:0;visibility:hidden;background:#f1d9a0}
+.c a:hover{outline:2px solid #c9731a;outline-offset:-4px}
+.c a:focus-visible{outline:3px solid #1f4f8f;outline-offset:-3px;background:#e8c46f}
+.c0 a{visibility:visible}
+.mk:target~.b .c0 a{visibility:hidden}
 .win{display:none;margin:1.2em auto 0;max-width:30em;padding:14px 18px;border:2px solid #2d6a2d;border-radius:10px;background:#e3f3dc;color:#173d17}
 .win strong{display:block;font-size:1.3rem}
 .ctl{margin-top:1.2em}
-.ctl button{font:bold 15px system-ui,sans-serif;padding:8px 18px;border-radius:999px;border:2px solid #2b1d0e;background:#fff8e6;color:#2b1d0e;cursor:pointer}
+.ctl a{display:inline-block;font:bold 15px system-ui,sans-serif;padding:8px 18px;border-radius:999px;border:2px solid #2b1d0e;background:#fff8e6;color:#2b1d0e;text-decoration:none}
+.ctl a:focus-visible{outline:3px solid #1f4f8f;outline-offset:2px}
 `;
 
 // Render the full, self-contained HTML page for a maze.
@@ -186,13 +194,13 @@ export function renderMazePage(maze, { title = 'The Maze' } = {}) {
   sides[start] |= N;
   sides[exit] |= S;
 
-  const inputs = [];
+  const markers = [];
   const cells = [];
   const current = [];
   const adjacent = [];
   for (let i = 0; i < n; i++) {
     const x = i % w, y = Math.floor(i / w);
-    inputs.push(`<input type="radio" name="p" id="c${i}"${i === start ? ' checked' : ''}>`);
+    markers.push(`<i class="mk" id="c${i}"></i>`);
 
     const cls = ['c', `c${i}`];
     if (!(sides[i] & N)) cls.push('n');
@@ -200,16 +208,17 @@ export function renderMazePage(maze, { title = 'The Maze' } = {}) {
     if (x === w - 1 && !(sides[i] & E)) cls.push('e');
     if (y === h - 1 && !(sides[i] & S)) cls.push('s');
     const letter = letters.get(i);
-    cells.push(`<label for="c${i}" class="${cls.join(' ')}">${letter ? `<b>${letter}</b>` : ''}</label>`);
+    const link = `<a href="#c${i}" aria-label="Row ${y + 1}, column ${x + 1}"></a>`;
+    cells.push(`<div class="${cls.join(' ')}">${link}${letter ? `<b>${letter}</b>` : ''}</div>`);
 
-    current.push(`#c${i}:checked~.b .c${i}`);
-    for (const j of passages(open, i, w, h)) adjacent.push(`#c${i}:checked~.b .c${j}`);
+    current.push(`#c${i}:target~.b .c${i}`);
+    for (const j of passages(open, i, w, h)) adjacent.push(`#c${i}:target~.b .c${j} a`);
   }
 
   const dynamicCss =
-    `${adjacent.join(',')}{pointer-events:auto;cursor:pointer;background:#f1d9a0}` +
+    `${adjacent.join(',')}{visibility:visible}` +
     `${current.join(',')}{background:#c9731a;--vis:visible}` +
-    `#c${exit}:checked~.win{display:block}`;
+    `#c${exit}:target~.win{display:block}`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -225,19 +234,21 @@ export function renderMazePage(maze, { title = 'The Maze' } = {}) {
 <ul class="intro">
 <li>Enter at the top left and escape at the bottom right.</li>
 <li>Tap or click a highlighted square next to you to move there.</li>
+<li>On a keyboard, press Tab to cycle through the squares you can reach, then Enter to step.</li>
 <li>Letters appear only while you stand on them. Dead ends hide decoys.</li>
 <li>The letters on the one true path from entrance to exit, read in order, spell the answer.</li>
+<li>Your browser's Back button undoes a move.</li>
 </ul>
-<form class="mz" autocomplete="off">
-${inputs.join('')}
+<div class="mz">
+${markers.join('')}
 <div class="b" style="--w:${w}">
 <div class="io in">Start &darr;</div>
 <div class="g">${cells.join('')}</div>
 <div class="io out">&darr; Exit</div>
 </div>
 <div class="win"><strong>You escaped!</strong>Now retrace the only route from the entrance to the exit. Its letters, in order, are your answer.</div>
-<p class="ctl"><button type="reset">Start over</button></p>
-</form>
+<p class="ctl"><a href="#">Start over</a></p>
+</div>
 </main>
 </body>
 </html>

@@ -65,8 +65,10 @@ test('rendered page is self-contained with no scripts or external assets', () =>
   const maze = buildMaze({ word: 'abc', seed: 'r', w: 6, h: 6 });
   const html = renderMazePage(maze);
   assert.doesNotMatch(html, /<script/i);
-  assert.doesNotMatch(html, /\b(src|href)=/i);
-  assert.equal((html.match(/type="radio"/g) || []).length, 36);
-  assert.match(html, /id="c0" checked/);
-  assert.match(html, /#c35:checked~\.win\{display:block\}/);
+  assert.doesNotMatch(html, /\bsrc=/i);
+  const hrefs = [...html.matchAll(/href="([^"]*)"/g)].map((m) => m[1]);
+  assert.ok(hrefs.every((href) => href.startsWith('#')), 'only in-page fragment links');
+  assert.equal(hrefs.filter((href) => /^#c\d+$/.test(href)).length, 36);
+  assert.equal((html.match(/class="mk"/g) || []).length, 36);
+  assert.match(html, /#c35:target~\.win\{display:block\}/);
 });
