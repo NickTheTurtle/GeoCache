@@ -60,7 +60,11 @@ test.describe('Maze (JavaScript disabled)', () => {
     expect(visited.length).toBeLessThan(maze.path.length - 1); // corridors took one press
     await expect(page.locator('.pad')).toBeHidden(); // the picture takes the pad's place
     await expect(win).toBeVisible();
-    await expect(win).toContainText('You escaped!');
+    await expect(win).toContainText('Target acquired!');
+    await expect(page).toHaveTitle('The Heist');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('The Heist');
+    await expect(page.locator('.io.in')).toHaveText('Entrance ↓');
+    await expect(page.locator('.io.out')).toHaveText('↓ Target');
     const img = win.locator('img');
     await expect(img).toBeVisible();
     expect(await img.evaluate((el) => el.naturalWidth)).toBeGreaterThan(0);

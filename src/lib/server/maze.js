@@ -267,7 +267,7 @@ export function imageFromFile(file, alt = 'The prize') {
 const escapeAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
 // Render the full, self-contained HTML page for a maze.
-export function renderMazePage(maze, { title = 'The Maze', image = DEFAULT_IMAGE } = {}) {
+export function renderMazePage(maze, { title = 'The Heist', image = DEFAULT_IMAGE } = {}) {
   const { w, h, open, start, exit, codes } = maze;
   const n = w * h;
   // The outer wall gets openings at the entrance (top of the start cell) and the
@@ -330,12 +330,12 @@ export function renderMazePage(maze, { title = 'The Maze', image = DEFAULT_IMAGE
 <div class="mz">
 ${markers.join('')}
 <div class="b" style="--w:${w}">
-<div class="io in">Start &darr;</div>
+<div class="io in">Entrance &darr;</div>
 <div class="g">${cells.join('')}</div>
-<div class="io out">&darr; Exit</div>
+<div class="io out">&darr; Target</div>
 </div>
 <nav class="pad" aria-label="Move">${placeholders.join('')}${moves.join('')}</nav>
-<div class="win">You escaped!<img src="${image.src}" alt="${escapeAttr(image.alt)}"></div>
+<div class="win">Target acquired!<img src="${image.src}" alt="${escapeAttr(image.alt)}"></div>
 <p class="ctl"><a href="#">Start over</a></p>
 </div>
 </main>
