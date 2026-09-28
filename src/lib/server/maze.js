@@ -349,15 +349,19 @@ let cached = null;
 // The page configured via env vars, built once per process so every request
 // (and every archive capture) sees the exact same maze.
 //   MAZE_SEED       any string; change it to get a different layout
-//   MAZE_SIZE       "25" for 25x25 or "30x20" for width x height (5 to 40)
-//   MAZE_IMAGE      path to the picture shown on escape (png/jpg/gif/webp/svg)
+//   MAZE_SIZE       "18" for 18x18 or "24x16" for width x height (5 to 40)
+//   MAZE_IMAGE      picture shown on escape (png/jpg/gif/webp/svg); defaults to
+//                   assets/maze-prize.png, or a treasure chest if that is missing
 //   MAZE_IMAGE_ALT  alt text for that picture
+export const PRIZE_FILE = 'assets/maze-prize.png';
+
 export function configuredMazePage() {
   if (!cached) {
     const { w, h } = parseSize(process.env.MAZE_SIZE);
     const maze = buildMaze({ seed: process.env.MAZE_SEED || 'geocache', w, h });
-    const image = process.env.MAZE_IMAGE
-      ? imageFromFile(path.resolve(process.env.MAZE_IMAGE), process.env.MAZE_IMAGE_ALT)
+    const file = process.env.MAZE_IMAGE || (fs.existsSync(PRIZE_FILE) ? PRIZE_FILE : null);
+    const image = file
+      ? imageFromFile(path.resolve(file), process.env.MAZE_IMAGE_ALT || (process.env.MAZE_IMAGE ? undefined : 'QR code'))
       : DEFAULT_IMAGE;
     cached = renderMazePage(maze, { image });
   }

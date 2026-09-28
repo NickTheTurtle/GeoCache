@@ -102,8 +102,8 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 | `PUBLIC_BASE_URL` | (none)     | Public URL encoded in QR codes.         |
 | `MAZE_SEED`       | `geocache` | Maze layout and square codes. Set a private value. |
 | `MAZE_SIZE`       | `18`       | `/maze` grid: `18` or `WxH` (5 to 40).  |
-| `MAZE_IMAGE`      | (built-in) | Picture shown when `/maze` is solved.   |
-| `MAZE_IMAGE_ALT`  | `The prize`| Alt text for `MAZE_IMAGE`.              |
+| `MAZE_IMAGE`      | `assets/maze-prize.png` | Picture shown when `/maze` is solved. |
+| `MAZE_IMAGE_ALT`  | `QR code`  | Alt text for the picture.               |
 
 ## Maze puzzle (`/maze`)
 
@@ -119,8 +119,8 @@ the exit can't be reached by guessing a URL; set your own `MAZE_SEED` rather
 than relying on the default. (A static page still contains its own state
 machine, so a determined player reading the HTML, or a solver sharing their
 final URL, can skip ahead.) Reaching the exit reveals
-the picture from `MAZE_IMAGE` (png/jpg/gif/webp/svg), or a treasure chest if
-unset. It's inlined into the page as a data URL, so keep it reasonably small.
+the picture from `MAZE_IMAGE` (png/jpg/gif/webp/svg), by default the QR code in
+`assets/maze-prize.png` (or a treasure chest if that file is missing). It's inlined into the page as a data URL, so keep it reasonably small.
 The same env vars always produce the same maze, so every capture matches.
 
 ## Deploying

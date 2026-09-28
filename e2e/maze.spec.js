@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { buildMaze, slideTarget } from '../src/lib/server/maze.js';
 import { MAZE_ENV } from '../playwright.config.js';
 
@@ -61,6 +62,9 @@ test.describe('Maze (JavaScript disabled)', () => {
     const img = win.locator('img');
     await expect(img).toBeVisible();
     expect(await img.evaluate((el) => el.naturalWidth)).toBeGreaterThan(0);
+    // The prize is the repo's QR code, embedded byte-for-byte.
+    const prize = readFileSync(new URL('../assets/maze-prize.png', import.meta.url)).toString('base64');
+    expect(await img.getAttribute('src')).toBe(`data:image/png;base64,${prize}`);
     // Moving must not make the page jump around.
     expect(await page.evaluate(() => window.scrollY)).toBe(startY);
 
