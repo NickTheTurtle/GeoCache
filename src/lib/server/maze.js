@@ -348,20 +348,28 @@ let cached = null;
 
 // The page configured via env vars, built once per process so every request
 // (and every archive capture) sees the exact same maze.
-//   MAZE_SEED       any string; change it to get a different layout
+//   MAZE_SEED       any string; sets the layout and the square codes. Keep it
+//                   private: the default is public, so anyone could rebuild the
+//                   maze and its exit code from it.
 //   MAZE_SIZE       "18" for 18x18 or "24x16" for width x height (5 to 40)
 //   MAZE_IMAGE      picture shown on escape (png/jpg/gif/webp/svg); defaults to
 //                   assets/maze-prize.png, or a treasure chest if that is missing
 //   MAZE_IMAGE_ALT  alt text for that picture
+export const DEFAULT_SEED = 'geocache';
+// Resolved from the app directory (the service's WorkingDirectory): the server
+// code is bundled into build/, so a path relative to this module won't work.
 export const PRIZE_FILE = 'assets/maze-prize.png';
 
-export function configuredMazePage() {
+export function configuredMazePage(env = process.env) {
   if (!cached) {
-    const { w, h } = parseSize(process.env.MAZE_SIZE);
-    const maze = buildMaze({ seed: process.env.MAZE_SEED || 'geocache', w, h });
-    const file = process.env.MAZE_IMAGE || (fs.existsSync(PRIZE_FILE) ? PRIZE_FILE : null);
+    const { w, h } = parseSize(env.MAZE_SIZE);
+    if (!env.MAZE_SEED) {
+      console.warn(`[maze] MAZE_SEED is not set, using the public default "${DEFAULT_SEED}". Set a private seed before going live.`);
+    }
+    const maze = buildMaze({ seed: env.MAZE_SEED || DEFAULT_SEED, w, h });
+    const file = env.MAZE_IMAGE || (fs.existsSync(PRIZE_FILE) ? PRIZE_FILE : null);
     const image = file
-      ? imageFromFile(path.resolve(file), process.env.MAZE_IMAGE_ALT || (process.env.MAZE_IMAGE ? undefined : 'QR code'))
+      ? imageFromFile(path.resolve(file), env.MAZE_IMAGE_ALT || (env.MAZE_IMAGE ? undefined : 'QR code'))
       : DEFAULT_IMAGE;
     cached = renderMazePage(maze, { image });
   }

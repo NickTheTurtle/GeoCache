@@ -17,7 +17,14 @@
 #   #   export DOMAIN='geocache.example.com'         # your own domain (point its DNS A record at this box first)
 #   #   export ACME_EMAIL='you@example.com'          # for Let's Encrypt expiry notices
 #   #   export GIT_REF='main'
+#   # the maze puzzle (/maze), served on its own hostname:
+#   #   export MAZE_DOMAIN='maze.example.com'        # point DNS at this box first
+#   #   export MAZE_SEED='long-private-string'       # required with MAZE_DOMAIN; never change it once archived
+#   #   export MAZE_SIZE='18'                        # optional, e.g. '24x16'
 #   sudo -E bash deploy/ec2-setup.sh
+#
+# MAZE_* values are saved in the env file, so later runs keep them unless you
+# export new ones.
 #
 set -euo pipefail
 
@@ -37,6 +44,19 @@ if [[ $EUID -ne 0 ]]; then
 fi
 if [[ -z "${ADMIN_PASSWORD:-}" ]]; then
   echo "ADMIN_PASSWORD is required. Re-run with:  export ADMIN_PASSWORD='...'  then sudo -E bash deploy/ec2-setup.sh" >&2
+  exit 1
+fi
+
+# Maze settings persist across runs: fall back to the values saved last time,
+# since a changed MAZE_SEED would no longer match the archived page.
+MAZE_VARS=(MAZE_DOMAIN MAZE_SEED MAZE_SIZE MAZE_IMAGE MAZE_IMAGE_ALT)
+for var in "${MAZE_VARS[@]}"; do
+  if [[ -z "${!var:-}" && -f "$ENV_FILE" ]]; then
+    printf -v "$var" '%s' "$(sed -n "s/^${var}=//p" "$ENV_FILE" | tail -n 1)"
+  fi
+done
+if [[ -n "${MAZE_DOMAIN:-}" && -z "${MAZE_SEED:-}" ]]; then
+  echo "MAZE_SEED is required with MAZE_DOMAIN. Re-run with:  export MAZE_SEED='...'" >&2
   exit 1
 fi
 
@@ -170,6 +190,9 @@ ORIGIN=${PUBLIC_URL}
 BODY_SIZE_LIMIT=10485760
 EOF
 [[ -n "$SQLITE_OPT" ]] && echo "NODE_OPTIONS=${SQLITE_OPT}" >> "$ENV_FILE"
+for var in "${MAZE_VARS[@]}"; do
+  if [[ -n "${!var:-}" ]]; then echo "${var}=${!var}" >> "$ENV_FILE"; fi
+done
 chmod 600 "$ENV_FILE"
 chown root:root "$ENV_FILE"
 
@@ -208,7 +231,7 @@ systemctl restart geocache
 # ---- Caddy reverse proxy + auto HTTPS -------------------------------------
 # Each app on this box owns one file in /etc/caddy/sites/ and the main
 # Caddyfile only holds global options plus an import of that directory, so
-# rewriting it here never drops sites that other apps (e.g. the maze) added.
+# rewriting it here never drops sites that other apps added.
 log "Configuring Caddy for ${DOMAIN}"
 mkdir -p /etc/caddy/sites
 cat > /etc/caddy/sites/geocache.caddy <<EOF
@@ -217,6 +240,36 @@ ${DOMAIN} {
     reverse_proxy 127.0.0.1:${PORT}
 }
 EOF
+
+# The maze gets its own hostname that exposes only /maze, not the rest of the app.
+if [[ -n "${MAZE_DOMAIN:-}" ]]; then
+  log "Configuring Caddy for the maze at ${MAZE_DOMAIN}"
+  cat > /etc/caddy/sites/maze.caddy <<EOF
+${MAZE_DOMAIN} {
+    encode zstd gzip
+    redir / /maze
+    @maze path /maze /maze/
+    handle @maze {
+        reverse_proxy 127.0.0.1:${PORT}
+    }
+    handle {
+        respond "Not found" 404
+    }
+}
+EOF
+else
+  rm -f /etc/caddy/sites/maze.caddy
+fi
+
+# Retire the standalone wayback-maze service if an earlier deploy installed it;
+# the maze is now served by GeoCache and the two would claim the same hostname.
+if [[ -f /etc/systemd/system/wayback-maze.service || -f /etc/caddy/sites/wayback-maze.caddy ]]; then
+  log "Removing the old standalone wayback-maze service"
+  systemctl disable --now wayback-maze 2>/dev/null || true
+  rm -f /etc/systemd/system/wayback-maze.service /etc/caddy/sites/wayback-maze.caddy /etc/caddy/wayback-maze.caddy
+  systemctl daemon-reload
+fi
+
 {
   echo "# Managed by deploy scripts. Put each site in /etc/caddy/sites/<app>.caddy."
   if [[ -n "${ACME_EMAIL:-}" ]]; then
@@ -232,12 +285,18 @@ systemctl enable caddy
 systemctl reload caddy 2>/dev/null || systemctl restart caddy
 
 # ---- done ------------------------------------------------------------------
+if [[ -n "${MAZE_DOMAIN:-}" ]]; then
+  MAZE_URL="https://${MAZE_DOMAIN}/maze"
+else
+  MAZE_URL="${PUBLIC_URL}/maze  (set MAZE_DOMAIN and MAZE_SEED to give it its own hostname)"
+fi
 sleep 2
 log "Deployment complete!"
 cat <<EOF
 
   App URL:      ${PUBLIC_URL}
   Admin:        ${PUBLIC_URL}/admin
+  Maze:         ${MAZE_URL}
   Data (SQLite):${DATA_DIR}/geocache.db
 
   Service:      sudo systemctl status geocache

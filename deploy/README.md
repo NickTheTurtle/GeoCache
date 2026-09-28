@@ -87,6 +87,30 @@ The script sets `PUBLIC_BASE_URL` to your HTTPS address, so QR codes generated
 from the **admin** page (`/admin`) already encode the correct public link.
 (Re)generate them there after deploying.
 
+## 6. (Optional) The maze on its own hostname
+
+The app always serves the maze at `/maze`. To also give it its own hostname,
+such as `maze.hunt.dxu.info`, that exposes **only** the maze (`/` redirects to
+`/maze`, and everything else, including `/admin`, returns 404):
+
+1. Point the name at this box. A CNAME to your main domain works, e.g.
+   `maze.hunt` → `hunt.dxu.info`. Wait until `nslookup` returns this box's IP.
+2. Re-run the setup script with the maze settings added:
+
+   ```bash
+   export MAZE_DOMAIN='maze.hunt.dxu.info'
+   export MAZE_SEED='some-long-private-string'   # keep it secret
+   sudo -E bash deploy/ec2-setup.sh              # plus ADMIN_PASSWORD etc. as above
+   ```
+
+The `MAZE_*` values are saved in `/etc/geocache.env`, and later runs reuse them
+unless you export new ones. **Never change `MAZE_SEED` once the page is
+archived:** it sets the layout and every square code, so the live page would no
+longer match the capture.
+
+Then submit `https://maze.hunt.dxu.info/maze`, with no `#…` part, to
+<https://web.archive.org/save>.
+
 ---
 
 ## Operating it
@@ -100,9 +124,10 @@ sudo systemctl restart geocache     # restart
 - **App code:** `/opt/geocache`
 - **Config/secrets:** `/etc/geocache.env` (root-only, contains `ADMIN_PASSWORD`)
 - **Database:** `/var/lib/geocache/geocache.db` (survives restarts, redeploys, and reboots)
-- **Caddy site:** `/etc/caddy/sites/geocache.caddy`. The main `/etc/caddy/Caddyfile`
-  only imports `/etc/caddy/sites/*.caddy`, so other apps on the same box (like
-  the maze) keep their own files there and re-running this setup won't remove them.
+- **Caddy sites:** `/etc/caddy/sites/geocache.caddy` (and `maze.caddy` when
+  `MAZE_DOMAIN` is set). The main `/etc/caddy/Caddyfile` only imports
+  `/etc/caddy/sites/*.caddy`, so any other app on the box can keep its own file
+  there and re-running this setup won't remove it.
 
 ### Update to the latest code
 

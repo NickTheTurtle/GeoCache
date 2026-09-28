@@ -123,6 +123,9 @@ the picture from `MAZE_IMAGE` (png/jpg/gif/webp/svg), by default the QR code in
 `assets/maze-prize.png` (or a treasure chest if that file is missing). It's inlined into the page as a data URL, so keep it reasonably small.
 The same env vars always produce the same maze, so every capture matches.
 
+On EC2, setting `MAZE_DOMAIN` (with `MAZE_SEED`) gives the maze its own hostname
+that serves only `/maze`; see [deploy/README.md](./deploy/README.md#6-optional-the-maze-on-its-own-hostname).
+
 ## Deploying
 
 The app is a standard Node service that needs **persistent disk** for the SQLite

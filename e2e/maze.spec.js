@@ -24,7 +24,9 @@ test.describe('Maze (JavaScript disabled)', () => {
   test.use({ javaScriptEnabled: false });
 
   test('board has no letters or instructions, and the picture starts hidden', async ({ page }) => {
-    await page.goto('/maze');
+    const res = await page.goto('/maze');
+    expect(res.headers()['content-security-policy']).toContain("default-src 'none'");
+    expect(res.headers()['content-type']).toBe('text/html; charset=utf-8');
     await expect(page.locator('.g')).toHaveText('');
     await expect(page.locator('ul, .intro')).toHaveCount(0);
     await expect(page.locator('.win img')).toBeHidden();
