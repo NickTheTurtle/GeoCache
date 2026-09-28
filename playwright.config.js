@@ -10,7 +10,7 @@ const HTTPS_PORT = 8443;
 const BASE_URL = `https://localhost:${HTTPS_PORT}`;
 const ADMIN_PASSWORD = 'e2e-secret-pw';
 // Fixed maze config so e2e/maze.spec.js can rebuild the same maze and solve it.
-const MAZE_ENV = { MAZE_WORD: 'E2EMAZE', MAZE_SEED: 'e2e-seed', MAZE_SIZE: '8x8' };
+const MAZE_ENV = { MAZE_SEED: 'e2e-seed', MAZE_SIZE: '8x8' };
 
 export default defineConfig({
   testDir: './e2e',

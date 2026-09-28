@@ -100,20 +100,22 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 | `ADMIN_PASSWORD`  | `changeme` | Admin page password. **Change this.**   |
 | `DATA_DIR`        | `./data`   | Directory for the SQLite database file. |
 | `PUBLIC_BASE_URL` | (none)     | Public URL encoded in QR codes.         |
-| `MAZE_WORD`       | `TREASURE` | Answer spelled along the `/maze` path.  |
 | `MAZE_SEED`       | `geocache` | Change for a different maze layout.     |
-| `MAZE_SIZE`       | `15`       | `/maze` grid: `15` or `WxH` (5 to 40).  |
+| `MAZE_SIZE`       | `25`       | `/maze` grid: `25` or `WxH` (5 to 40).  |
+| `MAZE_IMAGE`      | (built-in) | Picture shown when `/maze` is solved.   |
+| `MAZE_IMAGE_ALT`  | `The prize`| Alt text for `MAZE_IMAGE`.              |
 
 ## Maze puzzle (`/maze`)
 
 `/maze` is a standalone, zero-JavaScript maze page (inline CSS only, no external
 assets), built so it still works when captured by the Wayback Machine. Players
-move with an on-screen arrow pad (↑ ← → ↓). Each arrow is an in-page `#cN`
-link and CSS `:target` tracks the position, so only arrows into open passages
-are shown and the browser's Back button undoes a move. The letters of
-`MAZE_WORD` are printed on the board in order along the one true path from
-entrance to exit, and decoy letters sit in dead ends. The same env vars always
-produce the same maze, so every capture matches.
+move with an on-screen arrow pad (↑ ← → ↓); each press slides along the
+corridor until the next turn or junction. Each arrow is an in-page `#cN` link
+and CSS `:target` tracks the position, so only arrows into open passages are
+shown and the browser's Back button undoes a move. Reaching the exit reveals
+the picture from `MAZE_IMAGE` (png/jpg/gif/webp/svg), or a treasure chest if
+unset. It's inlined into the page as a data URL, so keep it reasonably small.
+The same env vars always produce the same maze, so every capture matches.
 
 ## Deploying
 

@@ -8,8 +8,11 @@
 // passage (href="#cM"), and generated sibling selectors (#cN:target ~ .pad .pN)
 // show only the arrows leading out of the current cell, so moves respect walls.
 //
-// Letters of the answer sit, in order, on the one true path from entrance to
-// exit; decoy letters sit in dead ends.
+// Arrows slide along a corridor until the next turn or junction. Reaching the
+// exit reveals a picture, inlined as a data: URL so nothing else is fetched.
+
+import fs from 'node:fs';
+import path from 'node:path';
 
 const N = 1, E = 2, S = 4, W = 8;
 const OPPOSITE = { [N]: S, [S]: N, [E]: W, [W]: E };
@@ -103,8 +106,8 @@ function solve(open, w, h, from, to) {
   return path;
 }
 
-// "15" -> 15x15, "20x12" -> 20 wide by 12 tall. Clamped to a sane range.
-export function parseSize(value, fallback = 15) {
+// "25" -> 25x25, "30x20" -> 30 wide by 20 tall. Clamped to a sane range.
+export function parseSize(value, fallback = 25) {
   const m = /^\s*(\d+)\s*(?:[x×]\s*(\d+))?\s*$/i.exec(String(value ?? ''));
   const clamp = (n) => Math.min(40, Math.max(5, n));
   if (!m) return { w: fallback, h: fallback };
@@ -112,48 +115,28 @@ export function parseSize(value, fallback = 15) {
   return { w, h: m[2] ? clamp(Number(m[2])) : w };
 }
 
-export function normalizeWord(word) {
-  return String(word ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const STEP = (w) => ({ [N]: -w, [S]: w, [E]: 1, [W]: -1 });
+const SIDEWAYS = { [N]: E | W, [S]: E | W, [E]: N | S, [W]: N | S };
+
+// Where an arrow press in `dir` from cell i lands: keep sliding straight until a
+// wall is ahead or a side passage opens (a turn or junction), so long corridors
+// take one press. Assumes the first step is open.
+export function slideTarget(open, i, dir, w) {
+  const step = STEP(w)[dir];
+  let j = i + step;
+  while (open[j] & dir && !(open[j] & SIDEWAYS[dir])) j += step;
+  return j;
 }
 
-const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
-// Build the maze model. Deterministic for a given (word, seed, w, h).
-export function buildMaze({ word, seed = 'geocache', w = 15, h = 15 } = {}) {
-  const answer = normalizeWord(word);
-  if (!answer) throw new Error('Maze word must contain at least one letter or digit.');
-
+// Build the maze model. Deterministic for a given (seed, w, h).
+export function buildMaze({ seed = 'geocache', w = 25, h = 25 } = {}) {
+  const rng = mulberry32(hashSeed(String(seed)));
+  const open = carve(w, h, rng);
   const start = 0;
   const exit = w * h - 1;
-  // Retry with derived seeds until the true path is long enough to spread the
-  // letters out (at least one blank cell between consecutive letters).
-  for (let attempt = 0; attempt < 100; attempt++) {
-    const rng = mulberry32(hashSeed(attempt ? `${seed}#${attempt}` : String(seed)));
-    const open = carve(w, h, rng);
-    const path = solve(open, w, h, start, exit);
-    const k = answer.length;
-    if (path.length - 2 < 2 * k) continue;
-
-    const letters = new Map();
-    for (let i = 0; i < k; i++) {
-      letters.set(path[Math.round(((i + 1) * (path.length - 1)) / (k + 1))], answer[i]);
-    }
-
-    const onPath = new Set(path);
-    const deadEnds = [];
-    for (let i = 0; i < w * h; i++) {
-      if (i === start || i === exit || onPath.has(i)) continue;
-      if (passages(open, i, w, h).length === 1) deadEnds.push(i);
-    }
-    const decoyCount = Math.min(deadEnds.length, Math.max(k, Math.ceil(deadEnds.length / 2)));
-    for (const i of shuffle(deadEnds, rng).slice(0, decoyCount)) {
-      letters.set(i, ALPHABET[Math.floor(rng() * ALPHABET.length)]);
-    }
-
-    return { w, h, open, start, exit, path, letters, word: answer };
-  }
-  throw new Error(`A ${w}x${h} maze is too small for a ${answer.length}-letter word; increase MAZE_SIZE.`);
+  return { w, h, open, start, exit, path: solve(open, w, h, start, exit) };
 }
+
 const CSS = `
 *{box-sizing:border-box}
 html{background:#f3e7c9;color:#2b1d0e}
@@ -165,10 +148,10 @@ h1{font-size:2.2rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 .5e
 .io{font:bold 13px/1.4 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#7a4b12}
 .in{text-align:left}.out{text-align:right}
 .g{display:grid;grid-template-columns:repeat(var(--w),var(--s));background:#fbf4e2;box-shadow:0 2px 10px rgba(60,35,5,.25)}
-.c{width:var(--s);height:var(--s);display:flex;align-items:center;justify-content:center;border:0 solid #2b1d0e;color:#8a5a1c;font:bold calc(var(--s)*.55)/1 system-ui,sans-serif;user-select:none;-webkit-user-select:none}
+.c{width:var(--s);height:var(--s);border:0 solid #2b1d0e}
 .n{border-top-width:2px}.w{border-left-width:2px}.e{border-right-width:2px}.s{border-bottom-width:2px}
-.c0{background:#c9731a;color:#fff}
-.mk:target~.b .c0{background:none;color:#8a5a1c}
+.c0{background:#c9731a}
+.mk:target~.b .c0{background:none}
 .pad{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,64px);gap:8px;justify-content:center;margin:1.2em auto 0}
 .ar{display:flex;align-items:center;justify-content:center;border:2px solid #2b1d0e;border-radius:16px;background:#fff8e6;color:#2b1d0e;font:bold 30px/1 system-ui,sans-serif;text-decoration:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .off{opacity:.25;border-style:dashed;pointer-events:none}
@@ -178,7 +161,8 @@ a.ar:active{background:#c9731a;color:#fff}
 a.ar:focus-visible{outline:3px solid #1f4f8f;outline-offset:2px}
 a.p0{display:flex}
 .mk:target~.pad a.p0{display:none}
-.win{display:none;margin:1em auto 0;max-width:20em;padding:12px 18px;border:2px solid #2d6a2d;border-radius:10px;background:#e3f3dc;color:#173d17;font-weight:bold;font-size:1.3rem}
+.win{display:none;margin:1em auto 0;max-width:520px;padding:12px;border:2px solid #2d6a2d;border-radius:10px;background:#e3f3dc;color:#173d17;font-weight:bold;font-size:1.3rem}
+.win img{display:block;max-width:100%;height:auto;margin:.5em auto 0;border-radius:6px}
 .ctl{margin-top:1.2em}
 .ctl a{display:inline-block;font:bold 15px system-ui,sans-serif;padding:8px 18px;border-radius:999px;border:2px solid #2b1d0e;background:#fff8e6;color:#2b1d0e;text-decoration:none}
 .ctl a:focus-visible{outline:3px solid #1f4f8f;outline-offset:2px}
@@ -191,16 +175,44 @@ const ARROWS = [
   [S, 'd', '&darr;', 'Down'],
 ];
 
+// Shown on escape when MAZE_IMAGE isn't set.
+const DEFAULT_IMAGE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 180" width="480" height="360">
+<rect width="240" height="180" fill="#fbf4e2"/>
+<g fill="#f4c542"><circle cx="40" cy="40" r="4"/><circle cx="200" cy="34" r="5"/><circle cx="214" cy="80" r="3"/><circle cx="28" cy="96" r="3"/></g>
+<path d="M50 90h140v62a8 8 0 0 1-8 8H58a8 8 0 0 1-8-8z" fill="#8a4b1c" stroke="#2b1d0e" stroke-width="4"/>
+<path d="M50 90c0-34 20-52 70-52s70 18 70 52z" fill="#a8602a" stroke="#2b1d0e" stroke-width="4"/>
+<path d="M60 90c8-14 28-22 60-22s52 8 60 22" fill="#f4c542" stroke="#2b1d0e" stroke-width="3"/>
+<path d="M70 38v122M170 38v122" stroke="#c9a227" stroke-width="8"/>
+<path d="M50 90h140" stroke="#2b1d0e" stroke-width="4"/>
+<rect x="108" y="84" width="24" height="30" rx="4" fill="#f4c542" stroke="#2b1d0e" stroke-width="3"/>
+<circle cx="120" cy="96" r="4" fill="#2b1d0e"/><path d="M120 98v9" stroke="#2b1d0e" stroke-width="3"/>
+</svg>`;
+export const DEFAULT_IMAGE = {
+  src: `data:image/svg+xml;base64,${Buffer.from(DEFAULT_IMAGE_SVG).toString('base64')}`,
+  alt: 'A treasure chest',
+};
+
+const IMAGE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
+
+// Inline an image file as a data: URL so the page stays a single self-contained
+// document (nothing extra for the archive to fetch).
+export function imageFromFile(file, alt = 'The prize') {
+  const type = IMAGE_TYPES[path.extname(file).toLowerCase()];
+  if (!type) throw new Error(`MAZE_IMAGE must be one of: ${Object.keys(IMAGE_TYPES).join(', ')}`);
+  return { src: `data:${type};base64,${fs.readFileSync(file).toString('base64')}`, alt };
+}
+
+const escapeAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
 // Render the full, self-contained HTML page for a maze.
-export function renderMazePage(maze, { title = 'The Maze' } = {}) {
-  const { w, h, open, start, exit, letters } = maze;
+export function renderMazePage(maze, { title = 'The Maze', image = DEFAULT_IMAGE } = {}) {
+  const { w, h, open, start, exit } = maze;
   const n = w * h;
   // The outer wall gets openings at the entrance (top of the start cell) and the
   // exit (bottom of the exit cell).
   const sides = open.slice();
   sides[start] |= N;
   sides[exit] |= S;
-  const step = { [N]: -w, [S]: w, [E]: 1, [W]: -1 };
 
   const markers = [];
   const cells = [];
@@ -216,11 +228,11 @@ export function renderMazePage(maze, { title = 'The Maze' } = {}) {
     if (!(sides[i] & W)) cls.push('w');
     if (x === w - 1 && !(sides[i] & E)) cls.push('e');
     if (y === h - 1 && !(sides[i] & S)) cls.push('s');
-    cells.push(`<div class="${cls.join(' ')}">${letters.get(i) ?? ''}</div>`);
+    cells.push(`<div class="${cls.join(' ')}"></div>`);
 
     for (const [dir, cl, glyph, label] of ARROWS) {
       if (open[i] & dir) {
-        moves.push(`<a href="#c${i + step[dir]}" class="ar ${cl} p${i}" aria-label="${label}">${glyph}</a>`);
+        moves.push(`<a href="#c${slideTarget(open, i, dir, w)}" class="ar ${cl} p${i}" aria-label="${label}">${glyph}</a>`);
       }
     }
     current.push(`#c${i}:target~.b .c${i}`);
@@ -229,9 +241,10 @@ export function renderMazePage(maze, { title = 'The Maze' } = {}) {
   const placeholders = ARROWS.map(([, cl, glyph]) => `<span class="ar ${cl} off" aria-hidden="true">${glyph}</span>`);
 
   const dynamicCss =
-    `${current.join(',')}{background:#c9731a;color:#fff}` +
+    `${current.join(',')}{background:#c9731a}` +
     `${shown.join(',')}{display:flex}` +
-    `#c${exit}:target~.win{display:block}`;
+    `#c${exit}:target~.win{display:block}` +
+    `#c${exit}:target~.pad{display:none}`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -252,7 +265,7 @@ ${markers.join('')}
 <div class="io out">&darr; Exit</div>
 </div>
 <nav class="pad" aria-label="Move">${placeholders.join('')}${moves.join('')}</nav>
-<div class="win">You escaped!</div>
+<div class="win">You escaped!<img src="${image.src}" alt="${escapeAttr(image.alt)}"></div>
 <p class="ctl"><a href="#">Start over</a></p>
 </div>
 </main>
@@ -265,19 +278,18 @@ let cached = null;
 
 // The page configured via env vars, built once per process so every request
 // (and every archive capture) sees the exact same maze.
-//   MAZE_WORD  the answer spelled along the true path (letters/digits)
-//   MAZE_SEED  any string; change it to get a different layout
-//   MAZE_SIZE  "15" for 15x15 or "20x12" for width x height (5 to 40)
+//   MAZE_SEED       any string; change it to get a different layout
+//   MAZE_SIZE       "25" for 25x25 or "30x20" for width x height (5 to 40)
+//   MAZE_IMAGE      path to the picture shown on escape (png/jpg/gif/webp/svg)
+//   MAZE_IMAGE_ALT  alt text for that picture
 export function configuredMazePage() {
   if (!cached) {
     const { w, h } = parseSize(process.env.MAZE_SIZE);
-    const maze = buildMaze({
-      word: process.env.MAZE_WORD || 'TREASURE',
-      seed: process.env.MAZE_SEED || 'geocache',
-      w,
-      h,
-    });
-    cached = renderMazePage(maze);
+    const maze = buildMaze({ seed: process.env.MAZE_SEED || 'geocache', w, h });
+    const image = process.env.MAZE_IMAGE
+      ? imageFromFile(path.resolve(process.env.MAZE_IMAGE), process.env.MAZE_IMAGE_ALT)
+      : DEFAULT_IMAGE;
+    cached = renderMazePage(maze, { image });
   }
   return cached;
 }
