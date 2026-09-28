@@ -9,6 +9,7 @@ import {
   passages,
   parseSize,
   slideTarget,
+  earlyBranches,
   imageFromFile,
   DEFAULT_IMAGE,
 } from '../src/lib/server/maze.js';
@@ -17,8 +18,16 @@ test('parseSize handles square, WxH, clamping and junk', () => {
   assert.deepEqual(parseSize('12'), { w: 12, h: 12 });
   assert.deepEqual(parseSize('20x10'), { w: 20, h: 10 });
   assert.deepEqual(parseSize('2x99'), { w: 5, h: 40 });
-  assert.deepEqual(parseSize(undefined), { w: 25, h: 25 });
-  assert.deepEqual(parseSize('big'), { w: 25, h: 25 });
+  assert.deepEqual(parseSize(undefined), { w: 18, h: 18 });
+  assert.deepEqual(parseSize('big'), { w: 18, h: 18 });
+});
+
+test('the first half of the route is full of real dead ends', () => {
+  for (const seed of ['geocache', 'a', 'b', 'c']) {
+    const { branches, deep } = earlyBranches(buildMaze({ seed }));
+    assert.ok(branches >= 12, `${seed}: ${branches} early branches`);
+    assert.ok(deep >= 6, `${seed}: ${deep} early dead ends`);
+  }
 });
 
 test('buildMaze is deterministic for the same inputs', () => {

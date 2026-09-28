@@ -57,25 +57,36 @@ function neighbours(i, w, h) {
   return out;
 }
 
-// Perfect maze (exactly one route between any two cells) via an iterative
-// recursive-backtracker. Each cell holds a bitmask of its open sides.
+// Perfect maze (exactly one route between any two cells) via a "growing tree":
+// usually extend the newest cell (recursive backtracker, long winding
+// corridors), but near the entrance often branch from a random earlier cell
+// instead, which sprouts many side passages there. Each cell holds a bitmask of
+// its open sides.
+const BRANCH_NEAR_START = 0.8; // branching chance at the entrance...
+const BRANCH_REACH = 0.6; // ...fading to 0 by this fraction of the way to the exit
+
 function carve(w, h, rng) {
   const open = new Array(w * h).fill(0);
   const seen = new Array(w * h).fill(false);
-  const stack = [0];
+  const active = [0];
   seen[0] = true;
-  while (stack.length) {
-    const cur = stack[stack.length - 1];
+  const far = w + h - 2;
+  while (active.length) {
+    const newest = active[active.length - 1];
+    const dist = (newest % w) + Math.floor(newest / w);
+    const branch = BRANCH_NEAR_START * Math.max(0, 1 - dist / (BRANCH_REACH * far));
+    const k = rng() < branch ? Math.floor(rng() * active.length) : active.length - 1;
+    const cur = active[k];
     const next = shuffle(neighbours(cur, w, h).filter(([, j]) => !seen[j]), rng);
     if (!next.length) {
-      stack.pop();
+      active.splice(k, 1);
       continue;
     }
     const [dir, j] = next[0];
     open[cur] |= dir;
     open[j] |= OPPOSITE[dir];
     seen[j] = true;
-    stack.push(j);
+    active.push(j);
   }
   return open;
 }
@@ -106,8 +117,8 @@ function solve(open, w, h, from, to) {
   return path;
 }
 
-// "25" -> 25x25, "30x20" -> 30 wide by 20 tall. Clamped to a sane range.
-export function parseSize(value, fallback = 25) {
+// "18" -> 18x18, "24x16" -> 24 wide by 16 tall. Clamped to a sane range.
+export function parseSize(value, fallback = 18) {
   const m = /^\s*(\d+)\s*(?:[x×]\s*(\d+))?\s*$/i.exec(String(value ?? ''));
   const clamp = (n) => Math.min(40, Math.max(5, n));
   if (!m) return { w: fallback, h: fallback };
@@ -128,13 +139,47 @@ export function slideTarget(open, i, dir, w) {
   return j;
 }
 
-// Build the maze model. Deterministic for a given (seed, w, h).
-export function buildMaze({ seed = 'geocache', w = 25, h = 25 } = {}) {
-  const rng = mulberry32(hashSeed(String(seed)));
-  const open = carve(w, h, rng);
+// Side branches leaving the first half of the true path, and how many of those
+// are real dead ends (at least 4 cells deep) rather than one-cell nooks.
+export function earlyBranches({ w, h, open, path }) {
+  const onPath = new Set(path);
+  let branches = 0;
+  let deep = 0;
+  for (const c of path.slice(0, Math.floor(path.length / 2))) {
+    for (const j of passages(open, c, w, h)) {
+      if (onPath.has(j)) continue;
+      branches++;
+      let size = 0;
+      const stack = [[j, c]];
+      while (stack.length) {
+        const [x, from] = stack.pop();
+        size++;
+        for (const y of passages(open, x, w, h)) if (y !== from) stack.push([y, x]);
+      }
+      if (size >= 4) deep++;
+    }
+  }
+  return { branches, deep };
+}
+
+const CANDIDATES = 20;
+
+// Build the maze model. Deterministic for a given (seed, w, h): of a fixed set
+// of candidate layouts, keep the one with the most real dead ends branching off
+// the first half of the route (ties go to the longer route).
+export function buildMaze({ seed = 'geocache', w = 18, h = 18 } = {}) {
   const start = 0;
   const exit = w * h - 1;
-  return { w, h, open, start, exit, path: solve(open, w, h, start, exit) };
+  let best = null;
+  for (let k = 0; k < CANDIDATES; k++) {
+    const open = carve(w, h, mulberry32(hashSeed(k ? `${seed}#${k}` : String(seed))));
+    const maze = { w, h, open, start, exit, path: solve(open, w, h, start, exit) };
+    const { deep } = earlyBranches(maze);
+    if (!best || deep > best.deep || (deep === best.deep && maze.path.length > best.maze.path.length)) {
+      best = { maze, deep };
+    }
+  }
+  return best.maze;
 }
 
 const CSS = `

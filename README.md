@@ -101,7 +101,7 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 | `DATA_DIR`        | `./data`   | Directory for the SQLite database file. |
 | `PUBLIC_BASE_URL` | (none)     | Public URL encoded in QR codes.         |
 | `MAZE_SEED`       | `geocache` | Change for a different maze layout.     |
-| `MAZE_SIZE`       | `25`       | `/maze` grid: `25` or `WxH` (5 to 40).  |
+| `MAZE_SIZE`       | `18`       | `/maze` grid: `18` or `WxH` (5 to 40).  |
 | `MAZE_IMAGE`      | (built-in) | Picture shown when `/maze` is solved.   |
 | `MAZE_IMAGE_ALT`  | `The prize`| Alt text for `MAZE_IMAGE`.              |
 
@@ -110,7 +110,8 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 `/maze` is a standalone, zero-JavaScript maze page (inline CSS only, no external
 assets), built so it still works when captured by the Wayback Machine. Players
 move with an on-screen arrow pad (↑ ← → ↓); each press slides along the
-corridor until the next turn or junction. Each arrow is an in-page `#cN` link
+corridor until the next turn or junction. The generator branches heavily near
+the entrance, so the early part of the route is full of dead ends. Each arrow is an in-page `#cN` link
 and CSS `:target` tracks the position, so only arrows into open passages are
 shown and the browser's Back button undoes a move. Reaching the exit reveals
 the picture from `MAZE_IMAGE` (png/jpg/gif/webp/svg), or a treasure chest if
