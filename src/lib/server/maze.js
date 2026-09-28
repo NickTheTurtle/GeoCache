@@ -203,7 +203,7 @@ export function buildMaze({ seed = 'geocache', w = 18, h = 18 } = {}) {
   return { ...best.maze, codes: makeCodes(seed, w * h) };
 }
 
-const CSS = `
+const CSS = `
 *{box-sizing:border-box}
 html{background:#f3e7c9;color:#2b1d0e}
 body{margin:0;font:16px/1.5 Georgia,"Times New Roman",serif}
