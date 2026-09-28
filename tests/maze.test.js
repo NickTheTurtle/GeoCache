@@ -10,6 +10,7 @@ import {
   parseSize,
   slideTarget,
   earlyBranches,
+  makeCodes,
   imageFromFile,
   DEFAULT_IMAGE,
 } from '../src/lib/server/maze.js';
@@ -68,6 +69,25 @@ test('slideTarget follows a corridor and stops at walls and side openings', () =
   assert.equal(slideTarget(open, 3, S, w), 8);
 });
 
+test('square codes are unguessable, unique, seed-bound and not emitted in order', () => {
+  const n = 18 * 18;
+  const a = makeCodes('secret-seed', n);
+  const all = [...a.id, ...a.cell, ...a.pad];
+  assert.equal(new Set(all).size, 3 * n, 'ids and class names never collide');
+  assert.ok(all.every((c) => /^[a-z][a-z0-9]{7}$/.test(c)), 'valid CSS identifiers');
+  assert.deepEqual(makeCodes('secret-seed', n), a, 'deterministic');
+  const b = makeCodes('other-seed', n);
+  assert.equal(a.id.filter((c, i) => b.id[i] === c).length, 0, 'a different seed changes every code');
+
+  const maze = buildMaze({ seed: 'secret-seed' });
+  const html = renderMazePage(maze);
+  assert.doesNotMatch(html, /#c\d+\b/, 'no sequential square numbers');
+  const markerOrder = [...html.matchAll(/<i class="mk" id="([^"]+)">/g)].map((m) => maze.codes.id.indexOf(m[1]));
+  assert.equal(markerOrder.length, n);
+  assert.notDeepEqual(markerOrder, [...Array(n).keys()], 'markers are shuffled');
+  assert.ok(markerOrder.at(-1) !== n - 1 && markerOrder[0] !== 0);
+});
+
 test('rendered page is self-contained with no scripts or external assets', () => {
   const maze = buildMaze({ seed: 'r', w: 6, h: 6 });
   const html = renderMazePage(maze);
@@ -77,10 +97,12 @@ test('rendered page is self-contained with no scripts or external assets', () =>
   assert.ok(srcs[0].startsWith('data:image/svg+xml;base64,'));
   const hrefs = [...html.matchAll(/href="([^"]*)"/g)].map((m) => m[1]);
   assert.ok(hrefs.every((href) => href.startsWith('#')), 'only in-page fragment links');
-  // One arrow link per direction of every open passage.
-  assert.equal(hrefs.filter((href) => /^#c\d+$/.test(href)).length, 2 * (36 - 1));
+  // One arrow link per direction of every open passage, each to a square's code.
+  const moves = hrefs.filter((href) => href !== '#');
+  assert.equal(moves.length, 2 * (36 - 1));
+  assert.ok(moves.every((href) => maze.codes.id.includes(href.slice(1))));
   assert.equal((html.match(/class="mk"/g) || []).length, 36);
-  assert.match(html, /#c35:target~\.win\{display:block\}/);
+  assert.ok(html.includes(`#${maze.codes.id[35]}:target~.win{display:block}`));
   // No letters on the board.
   assert.equal((html.match(/<div class="c [^"]*"><\/div>/g) || []).length, 36);
 });

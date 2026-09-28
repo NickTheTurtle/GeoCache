@@ -8,7 +8,7 @@ const maze = buildMaze({ seed: MAZE_ENV.MAZE_SEED, w, h });
 const DIRS = { [-w]: [1, 'Up'], [w]: [4, 'Down'], [-1]: [8, 'Left'], [1]: [2, 'Right'] };
 const OPEN = { 1: 'Up', 2: 'Right', 4: 'Down', 8: 'Left' };
 const arrow = (page, name) => page.locator('.pad').getByRole('link', { name, exact: true });
-const atCell = (page, i) => expect(page).toHaveURL(new RegExp(`#c${i}$`));
+const atCell = (page, i) => expect(page).toHaveURL(new RegExp(`#${maze.codes.id[i]}$`));
 
 // Only the arrows for open sides of cell i should be usable.
 async function expectArrowsFor(page, i) {
@@ -27,6 +27,12 @@ test.describe('Maze (JavaScript disabled)', () => {
     await expect(page.locator('.g')).toHaveText('');
     await expect(page.locator('ul, .intro')).toHaveCount(0);
     await expect(page.locator('.win img')).toBeHidden();
+  });
+
+  test('guessing the old sequential square numbers does nothing', async ({ page }) => {
+    await page.goto(`/maze#c${maze.exit}`);
+    await expect(page.locator('.win')).toBeHidden();
+    await expectArrowsFor(page, maze.start); // still standing at the entrance
   });
 
   test('arrow pad slides along the true path, respects walls, and reveals the picture', async ({ page }) => {

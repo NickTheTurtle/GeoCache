@@ -2,11 +2,12 @@
 //
 // The page is fully self-contained (inline CSS, no scripts or external assets)
 // so it survives being captured by the Internet Archive's Wayback Machine.
-// Movement uses fragment links and CSS :target. A hidden marker element with
-// id cN exists for every cell, and the targeted marker is the player's position
-// (no target means the entrance). An on-screen arrow pad holds one link per open
-// passage (href="#cM"), and generated sibling selectors (#cN:target ~ .pad .pN)
-// show only the arrows leading out of the current cell, so moves respect walls.
+// Movement uses fragment links and CSS :target. A hidden marker element with a
+// random-looking id (see makeCodes) exists for every cell, and the targeted
+// marker is the player's position (no target means the entrance). An on-screen
+// arrow pad holds one link per open passage, and generated sibling selectors
+// (#id:target ~ .pad .padClass) show only the arrows leading out of the current
+// cell, so moves respect walls.
 //
 // Arrows slide along a corridor until the next turn or junction. Reaching the
 // exit reveals a picture, inlined as a data: URL so nothing else is fetched.
@@ -163,6 +164,26 @@ export function earlyBranches({ w, h, open, path }) {
 }
 
 const CANDIDATES = 20;
+const CODE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+
+// Unguessable, seed-derived names for every square: `id` is the URL fragment
+// (#code) marking the player's position, while `cell` (board square) and `pad`
+// (that square's arrows) are unrelated CSS class names, so knowing one doesn't
+// give away the others. `order` is a shuffled square order for emitting them.
+// All start with a letter so they are valid CSS identifiers.
+export function makeCodes(seed, n) {
+  const rng = mulberry32(hashSeed(`${seed}:codes`));
+  const used = new Set(['c', 'n', 'e', 's', 'w', 'b', 'g', 'io', 'in', 'out', 'mk', 'pad', 'ar', 'off', 'u', 'l', 'r', 'd', 'win', 'ctl', 'mz']);
+  const code = () => {
+    for (;;) {
+      let s = CODE_CHARS[Math.floor(rng() * 26)];
+      for (let k = 0; k < 7; k++) s += CODE_CHARS[Math.floor(rng() * CODE_CHARS.length)];
+      if (!used.has(s)) return used.add(s), s;
+    }
+  };
+  const make = () => Array.from({ length: n }, code);
+  return { id: make(), cell: make(), pad: make(), order: shuffle([...Array(n).keys()], rng) };
+}
 
 // Build the maze model. Deterministic for a given (seed, w, h): of a fixed set
 // of candidate layouts, keep the one with the most real dead ends branching off
@@ -179,7 +200,7 @@ export function buildMaze({ seed = 'geocache', w = 18, h = 18 } = {}) {
       best = { maze, deep };
     }
   }
-  return best.maze;
+  return { ...best.maze, codes: makeCodes(seed, w * h) };
 }
 
 const CSS = `
@@ -195,8 +216,6 @@ h1{font-size:2.2rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 .5e
 .g{display:grid;grid-template-columns:repeat(var(--w),var(--s));background:#fbf4e2;box-shadow:0 2px 10px rgba(60,35,5,.25)}
 .c{width:var(--s);height:var(--s);border:0 solid #2b1d0e}
 .n{border-top-width:2px}.w{border-left-width:2px}.e{border-right-width:2px}.s{border-bottom-width:2px}
-.c0{background:#c9731a}
-.mk:target~.b .c0{background:none}
 .pad{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,64px);gap:8px;justify-content:center;margin:1.2em auto 0}
 .ar{display:flex;align-items:center;justify-content:center;border:2px solid #2b1d0e;border-radius:16px;background:#fff8e6;color:#2b1d0e;font:bold 30px/1 system-ui,sans-serif;text-decoration:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .off{opacity:.25;border-style:dashed;pointer-events:none}
@@ -204,8 +223,6 @@ h1{font-size:2.2rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 .5e
 a.ar{display:none;position:relative;z-index:1}
 a.ar:active{background:#c9731a;color:#fff}
 a.ar:focus-visible{outline:3px solid #1f4f8f;outline-offset:2px}
-a.p0{display:flex}
-.mk:target~.pad a.p0{display:none}
 .win{display:none;margin:1em auto 0;max-width:520px;padding:12px;border:2px solid #2d6a2d;border-radius:10px;background:#e3f3dc;color:#173d17;font-weight:bold;font-size:1.3rem}
 .win img{display:block;max-width:100%;height:auto;margin:.5em auto 0;border-radius:6px}
 .ctl{margin-top:1.2em}
@@ -251,7 +268,7 @@ const escapeAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;
 
 // Render the full, self-contained HTML page for a maze.
 export function renderMazePage(maze, { title = 'The Maze', image = DEFAULT_IMAGE } = {}) {
-  const { w, h, open, start, exit } = maze;
+  const { w, h, open, start, exit, codes } = maze;
   const n = w * h;
   // The outer wall gets openings at the entrance (top of the start cell) and the
   // exit (bottom of the exit cell).
@@ -259,37 +276,45 @@ export function renderMazePage(maze, { title = 'The Maze', image = DEFAULT_IMAGE
   sides[start] |= N;
   sides[exit] |= S;
 
-  const markers = [];
   const cells = [];
-  const moves = [];
-  const current = [];
-  const shown = [];
   for (let i = 0; i < n; i++) {
     const x = i % w, y = Math.floor(i / w);
-    markers.push(`<i class="mk" id="c${i}"></i>`);
-
-    const cls = ['c', `c${i}`];
+    const cls = ['c', codes.cell[i]];
     if (!(sides[i] & N)) cls.push('n');
     if (!(sides[i] & W)) cls.push('w');
     if (x === w - 1 && !(sides[i] & E)) cls.push('e');
     if (y === h - 1 && !(sides[i] & S)) cls.push('s');
     cells.push(`<div class="${cls.join(' ')}"></div>`);
+  }
 
+  // Everything else is emitted in a shuffled order, so neither the page source
+  // nor the codes themselves reveal which code belongs to which square.
+  const markers = [];
+  const moves = [];
+  const current = [];
+  const shown = [];
+  for (const i of codes.order) {
+    markers.push(`<i class="mk" id="${codes.id[i]}"></i>`);
     for (const [dir, cl, glyph, label] of ARROWS) {
       if (open[i] & dir) {
-        moves.push(`<a href="#c${slideTarget(open, i, dir, w)}" class="ar ${cl} p${i}" aria-label="${label}">${glyph}</a>`);
+        const to = codes.id[slideTarget(open, i, dir, w)];
+        moves.push(`<a href="#${to}" class="ar ${cl} ${codes.pad[i]}" aria-label="${label}">${glyph}</a>`);
       }
     }
-    current.push(`#c${i}:target~.b .c${i}`);
-    shown.push(`#c${i}:target~.pad a.p${i}`);
+    current.push(`#${codes.id[i]}:target~.b .${codes.cell[i]}`);
+    shown.push(`#${codes.id[i]}:target~.pad a.${codes.pad[i]}`);
   }
   const placeholders = ARROWS.map(([, cl, glyph]) => `<span class="ar ${cl} off" aria-hidden="true">${glyph}</span>`);
 
+  // With no #code in the URL the player stands at the entrance.
+  const [startCell, startPad] = [codes.cell[start], codes.pad[start]];
   const dynamicCss =
+    `.${startCell}{background:#c9731a}.mk:target~.b .${startCell}{background:none}` +
+    `a.${startPad}{display:flex}.mk:target~.pad a.${startPad}{display:none}` +
     `${current.join(',')}{background:#c9731a}` +
     `${shown.join(',')}{display:flex}` +
-    `#c${exit}:target~.win{display:block}` +
-    `#c${exit}:target~.pad{display:none}`;
+    `#${codes.id[exit]}:target~.win{display:block}` +
+    `#${codes.id[exit]}:target~.pad{display:none}`;
 
   return `<!DOCTYPE html>
 <html lang="en">
