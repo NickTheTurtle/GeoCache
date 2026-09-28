@@ -2,15 +2,14 @@
 //
 // The page is fully self-contained (inline CSS, no scripts or external assets)
 // so it survives being captured by the Internet Archive's Wayback Machine.
-// Movement uses fragment links and CSS :target. Each cell holds a link to
-// #cN, and a hidden marker element with that id comes before the board, so the
-// targeted marker is the player's position. Generated sibling selectors
-// (#cN:target ~ .b .cM a) reveal only the links into open neighbouring cells.
-// Hidden links can't be clicked and drop out of the Tab order, so mouse, touch
-// and keyboard (Tab to pick a square, Enter to step) all respect the walls.
+// Movement uses fragment links and CSS :target. A hidden marker element with
+// id cN exists for every cell, and the targeted marker is the player's position
+// (no target means the entrance). An on-screen arrow pad holds one link per open
+// passage (href="#cM"), and generated sibling selectors (#cN:target ~ .pad .pN)
+// show only the arrows leading out of the current cell, so moves respect walls.
 //
 // Letters of the answer sit, in order, on the one true path from entrance to
-// exit; decoy letters hide in dead ends. A letter only shows while standing on it.
+// exit; decoy letters sit in dead ends.
 
 const N = 1, E = 2, S = 4, W = 8;
 const OPPOSITE = { [N]: S, [S]: N, [E]: W, [W]: E };
@@ -155,34 +154,42 @@ export function buildMaze({ word, seed = 'geocache', w = 15, h = 15 } = {}) {
   }
   throw new Error(`A ${w}x${h} maze is too small for a ${answer.length}-letter word; increase MAZE_SIZE.`);
 }
-
-const CSS = `
+const CSS = `
 *{box-sizing:border-box}
 html{background:#f3e7c9;color:#2b1d0e}
 body{margin:0;font:16px/1.5 Georgia,"Times New Roman",serif}
-main{max-width:760px;margin:0 auto;padding:24px 16px 48px;text-align:center}
-h1{font-size:2.2rem;letter-spacing:.12em;text-transform:uppercase;margin:.2em 0}
-.intro{max-width:34em;margin:0 auto 1.2em;text-align:left}
-.intro li{margin:.2em 0}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px;text-align:center}
+h1{font-size:2.2rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 .5em}
 .mk{display:none}
 .b{display:inline-block;--s:min(calc((100vw - 40px)/var(--w)),34px)}
 .io{font:bold 13px/1.4 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#7a4b12}
 .in{text-align:left}.out{text-align:right}
 .g{display:grid;grid-template-columns:repeat(var(--w),var(--s));background:#fbf4e2;box-shadow:0 2px 10px rgba(60,35,5,.25)}
-.c{position:relative;width:var(--s);height:var(--s);display:flex;align-items:center;justify-content:center;border:0 solid #2b1d0e;user-select:none;-webkit-user-select:none;font:bold calc(var(--s)*.6)/1 system-ui,sans-serif}
+.c{width:var(--s);height:var(--s);display:flex;align-items:center;justify-content:center;border:0 solid #2b1d0e;color:#8a5a1c;font:bold calc(var(--s)*.55)/1 system-ui,sans-serif;user-select:none;-webkit-user-select:none}
 .n{border-top-width:2px}.w{border-left-width:2px}.e{border-right-width:2px}.s{border-bottom-width:2px}
-.c b{visibility:var(--vis,hidden);color:#fff}
-.c a{position:absolute;inset:0;visibility:hidden;background:#f1d9a0}
-.c a:hover{outline:2px solid #c9731a;outline-offset:-4px}
-.c a:focus-visible{outline:3px solid #1f4f8f;outline-offset:-3px;background:#e8c46f}
-.c0 a{visibility:visible}
-.mk:target~.b .c0 a{visibility:hidden}
-.win{display:none;margin:1.2em auto 0;max-width:30em;padding:14px 18px;border:2px solid #2d6a2d;border-radius:10px;background:#e3f3dc;color:#173d17}
-.win strong{display:block;font-size:1.3rem}
+.c0{background:#c9731a;color:#fff}
+.mk:target~.b .c0{background:none;color:#8a5a1c}
+.pad{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,64px);gap:8px;justify-content:center;margin:1.2em auto 0}
+.ar{display:flex;align-items:center;justify-content:center;border:2px solid #2b1d0e;border-radius:16px;background:#fff8e6;color:#2b1d0e;font:bold 30px/1 system-ui,sans-serif;text-decoration:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.off{opacity:.25;border-style:dashed;pointer-events:none}
+.u{grid-area:1/2}.l{grid-area:2/1}.r{grid-area:2/3}.d{grid-area:3/2}
+a.ar{display:none;position:relative;z-index:1}
+a.ar:active{background:#c9731a;color:#fff}
+a.ar:focus-visible{outline:3px solid #1f4f8f;outline-offset:2px}
+a.p0{display:flex}
+.mk:target~.pad a.p0{display:none}
+.win{display:none;margin:1em auto 0;max-width:20em;padding:12px 18px;border:2px solid #2d6a2d;border-radius:10px;background:#e3f3dc;color:#173d17;font-weight:bold;font-size:1.3rem}
 .ctl{margin-top:1.2em}
 .ctl a{display:inline-block;font:bold 15px system-ui,sans-serif;padding:8px 18px;border-radius:999px;border:2px solid #2b1d0e;background:#fff8e6;color:#2b1d0e;text-decoration:none}
 .ctl a:focus-visible{outline:3px solid #1f4f8f;outline-offset:2px}
 `;
+
+const ARROWS = [
+  [N, 'u', '&uarr;', 'Up'],
+  [W, 'l', '&larr;', 'Left'],
+  [E, 'r', '&rarr;', 'Right'],
+  [S, 'd', '&darr;', 'Down'],
+];
 
 // Render the full, self-contained HTML page for a maze.
 export function renderMazePage(maze, { title = 'The Maze' } = {}) {
@@ -193,11 +200,13 @@ export function renderMazePage(maze, { title = 'The Maze' } = {}) {
   const sides = open.slice();
   sides[start] |= N;
   sides[exit] |= S;
+  const step = { [N]: -w, [S]: w, [E]: 1, [W]: -1 };
 
   const markers = [];
   const cells = [];
+  const moves = [];
   const current = [];
-  const adjacent = [];
+  const shown = [];
   for (let i = 0; i < n; i++) {
     const x = i % w, y = Math.floor(i / w);
     markers.push(`<i class="mk" id="c${i}"></i>`);
@@ -207,17 +216,21 @@ export function renderMazePage(maze, { title = 'The Maze' } = {}) {
     if (!(sides[i] & W)) cls.push('w');
     if (x === w - 1 && !(sides[i] & E)) cls.push('e');
     if (y === h - 1 && !(sides[i] & S)) cls.push('s');
-    const letter = letters.get(i);
-    const link = `<a href="#c${i}" aria-label="Row ${y + 1}, column ${x + 1}"></a>`;
-    cells.push(`<div class="${cls.join(' ')}">${link}${letter ? `<b>${letter}</b>` : ''}</div>`);
+    cells.push(`<div class="${cls.join(' ')}">${letters.get(i) ?? ''}</div>`);
 
+    for (const [dir, cl, glyph, label] of ARROWS) {
+      if (open[i] & dir) {
+        moves.push(`<a href="#c${i + step[dir]}" class="ar ${cl} p${i}" aria-label="${label}">${glyph}</a>`);
+      }
+    }
     current.push(`#c${i}:target~.b .c${i}`);
-    for (const j of passages(open, i, w, h)) adjacent.push(`#c${i}:target~.b .c${j} a`);
+    shown.push(`#c${i}:target~.pad a.p${i}`);
   }
+  const placeholders = ARROWS.map(([, cl, glyph]) => `<span class="ar ${cl} off" aria-hidden="true">${glyph}</span>`);
 
   const dynamicCss =
-    `${adjacent.join(',')}{visibility:visible}` +
-    `${current.join(',')}{background:#c9731a;--vis:visible}` +
+    `${current.join(',')}{background:#c9731a;color:#fff}` +
+    `${shown.join(',')}{display:flex}` +
     `#c${exit}:target~.win{display:block}`;
 
   return `<!DOCTYPE html>
@@ -231,14 +244,6 @@ export function renderMazePage(maze, { title = 'The Maze' } = {}) {
 <body>
 <main>
 <h1>${title}</h1>
-<ul class="intro">
-<li>Enter at the top left and escape at the bottom right.</li>
-<li>Tap or click a highlighted square next to you to move there.</li>
-<li>On a keyboard, press Tab to cycle through the squares you can reach, then Enter to step.</li>
-<li>Letters appear only while you stand on them. Dead ends hide decoys.</li>
-<li>The letters on the one true path from entrance to exit, read in order, spell the answer.</li>
-<li>Your browser's Back button undoes a move.</li>
-</ul>
 <div class="mz">
 ${markers.join('')}
 <div class="b" style="--w:${w}">
@@ -246,7 +251,8 @@ ${markers.join('')}
 <div class="g">${cells.join('')}</div>
 <div class="io out">&darr; Exit</div>
 </div>
-<div class="win"><strong>You escaped!</strong>Now retrace the only route from the entrance to the exit. Its letters, in order, are your answer.</div>
+<nav class="pad" aria-label="Move">${placeholders.join('')}${moves.join('')}</nav>
+<div class="win">You escaped!</div>
 <p class="ctl"><a href="#">Start over</a></p>
 </div>
 </main>

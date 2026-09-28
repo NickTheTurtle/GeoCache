@@ -68,7 +68,10 @@ test('rendered page is self-contained with no scripts or external assets', () =>
   assert.doesNotMatch(html, /\bsrc=/i);
   const hrefs = [...html.matchAll(/href="([^"]*)"/g)].map((m) => m[1]);
   assert.ok(hrefs.every((href) => href.startsWith('#')), 'only in-page fragment links');
-  assert.equal(hrefs.filter((href) => /^#c\d+$/.test(href)).length, 36);
+  // One arrow link per direction of every open passage.
+  assert.equal(hrefs.filter((href) => /^#c\d+$/.test(href)).length, 2 * (36 - 1));
   assert.equal((html.match(/class="mk"/g) || []).length, 36);
   assert.match(html, /#c35:target~\.win\{display:block\}/);
+  // Every letter is printed on the board.
+  for (const letter of maze.letters.values()) assert.match(html, new RegExp(`">${letter}</div>`));
 });

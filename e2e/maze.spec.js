@@ -1,86 +1,58 @@
 import { test, expect } from '@playwright/test';
-import { buildMaze, passages } from '../src/lib/server/maze.js';
+import { buildMaze } from '../src/lib/server/maze.js';
 import { MAZE_ENV } from '../playwright.config.js';
 
 // Mirror the server's env-configured maze so the test knows the solution.
 const [w, h] = MAZE_ENV.MAZE_SIZE.split('x').map(Number);
 const maze = buildMaze({ word: MAZE_ENV.MAZE_WORD, seed: MAZE_ENV.MAZE_SEED, w, h });
-const cell = (page, i) => page.locator(`.c${i}`);
-const link = (page, i) => page.locator(`a[href="#c${i}"]`);
+const DIRS = { [-w]: 'Up', [w]: 'Down', [-1]: 'Left', [1]: 'Right' };
+const OPEN = { 1: 'Up', 2: 'Right', 4: 'Down', 8: 'Left' };
+const arrow = (page, name) => page.locator('.pad').getByRole('link', { name, exact: true });
 const atCell = (page, i) => expect(page).toHaveURL(new RegExp(`#c${i}$`));
 
-// Walk the true path with `step`, collecting the letters revealed on the way.
-async function walk(page, step) {
-  let spelled = '';
-  for (const i of maze.path) {
-    await step(i);
-    await atCell(page, i);
-    if (maze.letters.has(i)) {
-      const letter = cell(page, i).locator('b');
-      await expect(letter).toBeVisible();
-      spelled += await letter.textContent();
-    }
+// Only the arrows for open sides of cell i should be usable.
+async function expectArrowsFor(page, i) {
+  for (const [bit, name] of Object.entries(OPEN)) {
+    const a = arrow(page, name);
+    if (maze.open[i] & Number(bit)) await expect(a).toBeVisible();
+    else await expect(a).toHaveCount(0);
   }
-  return spelled;
 }
 
 test.describe('Maze (JavaScript disabled)', () => {
   test.use({ javaScriptEnabled: false });
 
-  test('mouse: walk the true path, collect letters, escape', async ({ page }) => {
+  test('letters are printed on the board and no instructions are shown', async ({ page }) => {
+    await page.goto('/maze');
+    for (const [i, letter] of maze.letters) await expect(page.locator(`.c${i}`)).toHaveText(letter);
+    await expect(page.locator('ul, .intro')).toHaveCount(0);
+  });
+
+  test('arrow pad walks the true path, respects walls, and escapes', async ({ page }) => {
     await page.goto('/maze');
     const win = page.locator('.win');
+    const startY = await page.evaluate(() => window.scrollY);
     await expect(win).toBeHidden();
+    await expectArrowsFor(page, maze.start);
 
-    // Before entering, only the entrance square is clickable.
-    await expect(link(page, 0)).toBeVisible();
-    await expect(link(page, maze.path[1])).toBeHidden();
-
-    await link(page, 0).click();
-    await atCell(page, 0);
-
-    // Squares walled off from the current one are not clickable.
-    const blocked = [...Array(w * h).keys()].find(
-      (i) => i !== 0 && !passages(maze.open, 0, w, h).includes(i)
-    );
-    await expect(link(page, blocked)).toBeHidden();
-
-    const spelled = await walk(page, (i) => (i === 0 ? null : link(page, i).click()));
-    expect(spelled).toBe(maze.word);
+    for (let k = 1; k < maze.path.length; k++) {
+      const [from, to] = [maze.path[k - 1], maze.path[k]];
+      await arrow(page, DIRS[to - from]).click();
+      await atCell(page, to);
+      await expectArrowsFor(page, to);
+    }
     await expect(win).toBeVisible();
+    await expect(win).toHaveText('You escaped!');
+    // Moving must not make the page jump around.
+    expect(await page.evaluate(() => window.scrollY)).toBe(startY);
 
-    // Back undoes a move, and letters hide again once you step off them.
+    // Back undoes a move.
     await page.goBack();
     await atCell(page, maze.path.at(-2));
     await expect(win).toBeHidden();
-    const firstLetter = maze.path.find((i) => maze.letters.has(i));
-    await expect(cell(page, firstLetter).locator('b')).toBeHidden();
 
     await page.getByRole('link', { name: 'Start over' }).click();
-    await expect(link(page, 0)).toBeVisible();
+    await expectArrowsFor(page, maze.start);
     await expect(win).toBeHidden();
-  });
-
-  test('keyboard: Tab reaches only open neighbours, Enter steps', async ({ page }) => {
-    await page.goto('/maze');
-    const startY = await page.evaluate(() => window.scrollY);
-
-    const spelled = await walk(page, async (i) => {
-      const allowed = new Set(
-        i === 0 ? [] : passages(maze.open, maze.path[maze.path.indexOf(i) - 1], w, h).map((j) => `#c${j}`)
-      );
-      for (let tries = 0; tries < 12; tries++) {
-        await page.keyboard.press('Tab');
-        const href = await page.locator(':focus').getAttribute('href').catch(() => null);
-        if (href === `#c${i}`) return page.keyboard.press('Enter');
-        // Any other maze square reached by Tab must be an open neighbour.
-        if (href?.startsWith('#c') && i !== 0) expect(allowed.has(href)).toBe(true);
-      }
-      throw new Error(`Could not Tab to square ${i}`);
-    });
-    expect(spelled).toBe(maze.word);
-    await expect(page.locator('.win')).toBeVisible();
-    // Moving must not make the page jump around.
-    expect(await page.evaluate(() => window.scrollY)).toBe(startY);
   });
 });

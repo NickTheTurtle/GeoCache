@@ -108,14 +108,12 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 
 `/maze` is a standalone, zero-JavaScript maze page (inline CSS only, no external
 assets), built so it still works when captured by the Wayback Machine. Players
-move by clicking an open neighbouring square, or on a keyboard by pressing Tab
-to cycle through reachable squares and Enter to step. Each square is an
-in-page `#cN` link and CSS `:target` tracks the position, so the browser's Back
-button undoes a move. The letters of `MAZE_WORD` sit in order along the one true path from
-entrance to exit, and decoy letters hide in dead ends. A letter is visible only
-while you stand on it. The same env vars always produce the same maze, so every
-capture matches. The letters are in the page source, so it resists casual
-guessing but won't stop anyone who reads the HTML.
+move with an on-screen arrow pad (↑ ← → ↓). Each arrow is an in-page `#cN`
+link and CSS `:target` tracks the position, so only arrows into open passages
+are shown and the browser's Back button undoes a move. The letters of
+`MAZE_WORD` are printed on the board in order along the one true path from
+entrance to exit, and decoy letters sit in dead ends. The same env vars always
+produce the same maze, so every capture matches.
 
 ## Deploying
 
