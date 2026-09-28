@@ -1,17 +1,19 @@
-import { configuredMazePage } from '$lib/server/maze.js';
+import { renderHeistNote } from '$lib/server/heistNote.js';
 
-// Served as a raw, self-contained HTML document (no SvelteKit layout or
-// client JS) so it can be archived by the Wayback Machine and still work.
+// The live page is now a note sending players to the Wayback Machine capture of
+// this URL, which still holds the maze. Served as a raw, self-contained HTML
+// document (no SvelteKit layout or client JS).
+const page = renderHeistNote();
+
 const HEADERS = {
   'content-type': 'text/html; charset=utf-8',
-  'cache-control': 'public, max-age=3600',
+  // Short, so browsers that cached the old maze (or this note) refresh quickly.
+  'cache-control': 'public, max-age=60',
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'no-referrer',
-  // The page has no scripts and only inline styles and data: images.
-  'content-security-policy':
-    "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'",
+  'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
 };
 
 export function GET() {
-  return new Response(configuredMazePage(), { headers: HEADERS });
+  return new Response(page, { headers: HEADERS });
 }
