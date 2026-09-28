@@ -17,14 +17,13 @@
 #   #   export DOMAIN='geocache.example.com'         # your own domain (point its DNS A record at this box first)
 #   #   export ACME_EMAIL='you@example.com'          # for Let's Encrypt expiry notices
 #   #   export GIT_REF='main'
-#   # the maze puzzle (/maze), served on its own hostname:
-#   #   export MAZE_DOMAIN='maze.example.com'        # point DNS at this box first
-#   #   export MAZE_SEED='long-private-string'       # required with MAZE_DOMAIN; never change it once archived
+#   # the heist maze (/heist):
+#   #   export MAZE_SEED='long-private-string'       # optional; a random one is generated on first run
 #   #   export MAZE_SIZE='18'                        # optional, e.g. '24x16'
 #   sudo -E bash deploy/ec2-setup.sh
 #
 # MAZE_* values are saved in the env file, so later runs keep them unless you
-# export new ones.
+# export new ones. Never change MAZE_SEED once /heist is archived.
 #
 set -euo pipefail
 
@@ -49,15 +48,16 @@ fi
 
 # Maze settings persist across runs: fall back to the values saved last time,
 # since a changed MAZE_SEED would no longer match the archived page.
-MAZE_VARS=(MAZE_DOMAIN MAZE_SEED MAZE_SIZE MAZE_IMAGE MAZE_IMAGE_ALT)
+MAZE_VARS=(MAZE_SEED MAZE_SIZE MAZE_IMAGE MAZE_IMAGE_ALT)
 for var in "${MAZE_VARS[@]}"; do
   if [[ -z "${!var:-}" && -f "$ENV_FILE" ]]; then
     printf -v "$var" '%s' "$(sed -n "s/^${var}=//p" "$ENV_FILE" | tail -n 1)"
   fi
 done
-if [[ -n "${MAZE_DOMAIN:-}" && -z "${MAZE_SEED:-}" ]]; then
-  echo "MAZE_SEED is required with MAZE_DOMAIN. Re-run with:  export MAZE_SEED='...'" >&2
-  exit 1
+# /heist is always public, so never fall back to the code's public default seed.
+if [[ -z "${MAZE_SEED:-}" ]]; then
+  MAZE_SEED="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+  echo "Generated a private MAZE_SEED for /heist (saved in ${ENV_FILE})."
 fi
 
 log() { echo -e "\n\033[1;36m==>\033[0m $*"; }
@@ -241,35 +241,6 @@ ${DOMAIN} {
 }
 EOF
 
-# The maze gets its own hostname that exposes only /maze, not the rest of the app.
-if [[ -n "${MAZE_DOMAIN:-}" ]]; then
-  log "Configuring Caddy for the maze at ${MAZE_DOMAIN}"
-  cat > /etc/caddy/sites/maze.caddy <<EOF
-${MAZE_DOMAIN} {
-    encode zstd gzip
-    redir / /maze
-    @maze path /maze /maze/
-    handle @maze {
-        reverse_proxy 127.0.0.1:${PORT}
-    }
-    handle {
-        respond "Not found" 404
-    }
-}
-EOF
-else
-  rm -f /etc/caddy/sites/maze.caddy
-fi
-
-# Retire the standalone wayback-maze service if an earlier deploy installed it;
-# the maze is now served by GeoCache and the two would claim the same hostname.
-if [[ -f /etc/systemd/system/wayback-maze.service || -f /etc/caddy/sites/wayback-maze.caddy ]]; then
-  log "Removing the old standalone wayback-maze service"
-  systemctl disable --now wayback-maze 2>/dev/null || true
-  rm -f /etc/systemd/system/wayback-maze.service /etc/caddy/sites/wayback-maze.caddy /etc/caddy/wayback-maze.caddy
-  systemctl daemon-reload
-fi
-
 {
   echo "# Managed by deploy scripts. Put each site in /etc/caddy/sites/<app>.caddy."
   if [[ -n "${ACME_EMAIL:-}" ]]; then
@@ -285,18 +256,13 @@ systemctl enable caddy
 systemctl reload caddy 2>/dev/null || systemctl restart caddy
 
 # ---- done ------------------------------------------------------------------
-if [[ -n "${MAZE_DOMAIN:-}" ]]; then
-  MAZE_URL="https://${MAZE_DOMAIN}/maze"
-else
-  MAZE_URL="${PUBLIC_URL}/maze  (set MAZE_DOMAIN and MAZE_SEED to give it its own hostname)"
-fi
 sleep 2
 log "Deployment complete!"
 cat <<EOF
 
   App URL:      ${PUBLIC_URL}
   Admin:        ${PUBLIC_URL}/admin
-  Maze:         ${MAZE_URL}
+  Heist maze:   ${PUBLIC_URL}/heist
   Data (SQLite):${DATA_DIR}/geocache.db
 
   Service:      sudo systemctl status geocache

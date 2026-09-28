@@ -100,31 +100,31 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 | `ADMIN_PASSWORD`  | `changeme` | Admin page password. **Change this.**   |
 | `DATA_DIR`        | `./data`   | Directory for the SQLite database file. |
 | `PUBLIC_BASE_URL` | (none)     | Public URL encoded in QR codes.         |
-| `MAZE_SEED`       | `geocache` | Maze layout and square codes. Set a private value. |
-| `MAZE_SIZE`       | `18`       | `/maze` grid: `18` or `WxH` (5 to 40).  |
-| `MAZE_IMAGE`      | `assets/maze-prize.png` | Picture shown when `/maze` is solved. |
+| `MAZE_SEED`       | `geocache` | Heist maze layout and square codes. Set a private value (the EC2 setup generates one). |
+| `MAZE_SIZE`       | `18`       | `/heist` grid: `18` or `WxH` (5 to 40). |
+| `MAZE_IMAGE`      | `assets/maze-prize.png` | Picture shown when `/heist` is solved. |
 | `MAZE_IMAGE_ALT`  | `QR code`  | Alt text for the picture.               |
 
-## Maze puzzle (`/maze`)
+## The Heist maze (`/heist`)
 
-`/maze` is a standalone, zero-JavaScript maze page (inline CSS only, no external
+`/heist` is a standalone, zero-JavaScript maze page (inline CSS only, no external
 assets), built so it still works when captured by the Wayback Machine. Players
-move with an on-screen arrow pad (↑ ← → ↓); each press slides along the
+go from the Entrance (top left) to the Target (bottom right) with an on-screen
+arrow pad (↑ ← → ↓); each press slides along the
 corridor until the next turn or junction. The generator branches heavily near
 the entrance, so the early part of the route is full of dead ends. Each arrow is an in-page `#code` link
 and CSS `:target` tracks the position, so only arrows into open passages are
 shown and the browser's Back button undoes a move. Square codes are random
 8-character strings derived from `MAZE_SEED`, emitted in shuffled order, so
-the exit can't be reached by guessing a URL; set your own `MAZE_SEED` rather
+the Target can't be reached by guessing a URL; set your own `MAZE_SEED` rather
 than relying on the default. (A static page still contains its own state
 machine, so a determined player reading the HTML, or a solver sharing their
-final URL, can skip ahead.) Reaching the exit reveals
+final URL, can skip ahead.) Reaching the Target shows "Target acquired!" and
 the picture from `MAZE_IMAGE` (png/jpg/gif/webp/svg), by default the QR code in
 `assets/maze-prize.png` (or a treasure chest if that file is missing). It's inlined into the page as a data URL, so keep it reasonably small.
 The same env vars always produce the same maze, so every capture matches.
-
-On EC2, setting `MAZE_DOMAIN` (with `MAZE_SEED`) gives the maze its own hostname
-that serves only `/maze`; see [deploy/README.md](./deploy/README.md#6-optional-the-maze-on-its-own-hostname).
+See [deploy/README.md](./deploy/README.md#6-the-heist-maze-heist) for deploying
+and archiving it.
 
 ## Deploying
 

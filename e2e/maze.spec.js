@@ -24,7 +24,7 @@ test.describe('Maze (JavaScript disabled)', () => {
   test.use({ javaScriptEnabled: false });
 
   test('board has no letters or instructions, and the picture starts hidden', async ({ page }) => {
-    const res = await page.goto('/maze');
+    const res = await page.goto('/heist');
     expect(res.headers()['content-security-policy']).toContain("default-src 'none'");
     expect(res.headers()['content-type']).toBe('text/html; charset=utf-8');
     await expect(page.locator('.g')).toHaveText('');
@@ -33,13 +33,13 @@ test.describe('Maze (JavaScript disabled)', () => {
   });
 
   test('guessing the old sequential square numbers does nothing', async ({ page }) => {
-    await page.goto(`/maze#c${maze.exit}`);
+    await page.goto(`/heist#c${maze.exit}`);
     await expect(page.locator('.win')).toBeHidden();
     await expectArrowsFor(page, maze.start); // still standing at the entrance
   });
 
   test('arrow pad slides along the true path, respects walls, and reveals the picture', async ({ page }) => {
-    await page.goto('/maze');
+    await page.goto('/heist');
     const win = page.locator('.win');
     const startY = await page.evaluate(() => window.scrollY);
     await expectArrowsFor(page, maze.start);

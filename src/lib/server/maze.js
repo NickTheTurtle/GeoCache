@@ -1,4 +1,4 @@
-// A deterministic, JavaScript-free maze puzzle served at /maze.
+// A deterministic, JavaScript-free maze puzzle ("The Heist") served at /heist.
 //
 // The page is fully self-contained (inline CSS, no scripts or external assets)
 // so it survives being captured by the Internet Archive's Wayback Machine.
