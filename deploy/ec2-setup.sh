@@ -178,6 +178,8 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR" "$DATA_DIR"
 
 # ---- environment file ------------------------------------------------------
 log "Writing ${ENV_FILE}"
+# Restrictive umask only while writing the secrets file; files created later
+# (e.g. Caddy's site config) must stay readable by their services.
 umask 077
 cat > "$ENV_FILE" <<EOF
 NODE_ENV=production
@@ -195,6 +197,7 @@ for var in "${MAZE_VARS[@]}"; do
 done
 chmod 600 "$ENV_FILE"
 chown root:root "$ENV_FILE"
+umask 022
 
 # ---- systemd service -------------------------------------------------------
 log "Installing systemd service"
@@ -233,7 +236,9 @@ systemctl restart geocache
 # Caddyfile only holds global options plus an import of that directory, so
 # rewriting it here never drops sites that other apps added.
 log "Configuring Caddy for ${DOMAIN}"
-mkdir -p /etc/caddy/sites
+# Caddy runs (and reloads) as the 'caddy' user, so everything it imports must be
+# world-readable. Set modes explicitly; this also repairs earlier bad modes.
+install -d -m 755 /etc/caddy/sites
 cat > /etc/caddy/sites/geocache.caddy <<EOF
 ${DOMAIN} {
     encode zstd gzip
@@ -250,7 +255,20 @@ EOF
   fi
   echo "import /etc/caddy/sites/*.caddy"
 } > /etc/caddy/Caddyfile
-caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+chmod 755 /etc/caddy/sites
+chmod 644 /etc/caddy/Caddyfile /etc/caddy/sites/*.caddy
+
+# Check the config exactly as the caddy user will load it. An unreadable import
+# only produces a warning and an empty config (every site goes down), so also
+# require our site to be present before reloading.
+CADDY_JSON="$(runuser -u caddy -- caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile 2>/dev/null)" || {
+  echo "Caddy config is invalid; not reloading. Check: sudo -u caddy caddy validate --config /etc/caddy/Caddyfile" >&2
+  exit 1
+}
+if ! grep -qF "\"${DOMAIN}\"" <<<"$CADDY_JSON"; then
+  echo "Caddy config (as the caddy user) doesn't include ${DOMAIN}; not reloading. Check permissions under /etc/caddy." >&2
+  exit 1
+fi
 
 systemctl enable caddy
 systemctl reload caddy 2>/dev/null || systemctl restart caddy
