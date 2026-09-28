@@ -17,13 +17,7 @@
 #   #   export DOMAIN='geocache.example.com'         # your own domain (point its DNS A record at this box first)
 #   #   export ACME_EMAIL='you@example.com'          # for Let's Encrypt expiry notices
 #   #   export GIT_REF='main'
-#   # the heist maze (/heist):
-#   #   export MAZE_SEED='long-private-string'       # optional; a random one is generated on first run
-#   #   export MAZE_SIZE='18'                        # optional, e.g. '24x16'
 #   sudo -E bash deploy/ec2-setup.sh
-#
-# MAZE_* values are saved in the env file, so later runs keep them unless you
-# export new ones. Never change MAZE_SEED once /heist is archived.
 #
 set -euo pipefail
 
@@ -44,20 +38,6 @@ fi
 if [[ -z "${ADMIN_PASSWORD:-}" ]]; then
   echo "ADMIN_PASSWORD is required. Re-run with:  export ADMIN_PASSWORD='...'  then sudo -E bash deploy/ec2-setup.sh" >&2
   exit 1
-fi
-
-# Maze settings persist across runs: fall back to the values saved last time,
-# since a changed MAZE_SEED would no longer match the archived page.
-MAZE_VARS=(MAZE_SEED MAZE_SIZE MAZE_IMAGE MAZE_IMAGE_ALT)
-for var in "${MAZE_VARS[@]}"; do
-  if [[ -z "${!var:-}" && -f "$ENV_FILE" ]]; then
-    printf -v "$var" '%s' "$(sed -n "s/^${var}=//p" "$ENV_FILE" | tail -n 1)"
-  fi
-done
-# /heist is always public, so never fall back to the code's public default seed.
-if [[ -z "${MAZE_SEED:-}" ]]; then
-  MAZE_SEED="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
-  echo "Generated a private MAZE_SEED for /heist (saved in ${ENV_FILE})."
 fi
 
 log() { echo -e "\n\033[1;36m==>\033[0m $*"; }
@@ -192,9 +172,6 @@ ORIGIN=${PUBLIC_URL}
 BODY_SIZE_LIMIT=10485760
 EOF
 [[ -n "$SQLITE_OPT" ]] && echo "NODE_OPTIONS=${SQLITE_OPT}" >> "$ENV_FILE"
-for var in "${MAZE_VARS[@]}"; do
-  if [[ -n "${!var:-}" ]]; then echo "${var}=${!var}" >> "$ENV_FILE"; fi
-done
 chmod 600 "$ENV_FILE"
 chown root:root "$ENV_FILE"
 umask 022
@@ -280,7 +257,7 @@ cat <<EOF
 
   App URL:      ${PUBLIC_URL}
   Admin:        ${PUBLIC_URL}/admin
-  Heist maze:   ${PUBLIC_URL}/heist
+  Heist:        ${PUBLIC_URL}/heist
   Data (SQLite):${DATA_DIR}/geocache.db
 
   Service:      sudo systemctl status geocache

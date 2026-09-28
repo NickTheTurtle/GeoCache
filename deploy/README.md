@@ -87,19 +87,14 @@ The script sets `PUBLIC_BASE_URL` to your HTTPS address, so QR codes generated
 from the **admin** page (`/admin`) already encode the correct public link.
 (Re)generate them there after deploying.
 
-## 6. The heist maze (`/heist`)
+## 6. The Heist (`/heist`)
 
-The app serves the heist maze at `https://<your-domain>/heist`; nothing extra
-to configure. On the first run the setup script generates a private random
-`MAZE_SEED` (which sets the layout and every square code) and saves it in
-`/etc/geocache.env`. Later runs, and `update.sh`, reuse it. To choose your own
-instead, `export MAZE_SEED='...'` before running the script.
-
-**Never change `MAZE_SEED` once the page is archived**, or the live page will
-no longer match the capture. To see it: `sudo grep MAZE_SEED /etc/geocache.env`.
-
-To archive it, submit `https://<your-domain>/heist`, with no `#…` part, to
-<https://web.archive.org/save>.
+`https://<your-domain>/heist` shows a note sending players to the Wayback
+Machine, where the archived capture of this URL still holds the maze. Nothing
+to configure. The maze code and its QR image are no longer part of the app, so
+nothing on the live site can reveal them; deploying (`update.sh` or this
+script) also deletes them from `/opt/geocache`, and the next setup run drops
+the old `MAZE_*` lines from `/etc/geocache.env`.
 
 ---
 
