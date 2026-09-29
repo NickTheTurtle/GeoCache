@@ -96,11 +96,17 @@ test.describe('Claim modal (opened from a QR link /?c=<secret>)', () => {
 
   test('Escape key closes the claim modal', async ({ page }) => {
     await signInAs(page, fx.crews.trolls);
+    // Hold the page mid-startup (it loads the leaderboard last) so Escape is
+    // pressed before loading finishes, as on a slow connection.
+    await page.route('**/api/leaderboard', async (route) => {
+      await new Promise((r) => setTimeout(r, 4000));
+      await route.continue().catch(() => {});
+    });
     await page.goto(`/?c=${fx.zones.beta.secret}`);
     const modal = claimModal(page);
     await expect(modal).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(modal).toBeHidden();
+    await expect(modal).toBeHidden({ timeout: 2000 });
   });
 });
 
