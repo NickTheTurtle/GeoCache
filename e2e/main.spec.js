@@ -40,8 +40,14 @@ test.describe('Main map page', () => {
 
   test('clicking a zone opens the hint modal with rendered markdown', async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('#map path.leaflet-interactive');
-    await page.locator('#map path.leaflet-interactive').first().click({ force: true });
+    const zone = page.locator('#map path.leaflet-interactive').first();
+    await zone.waitFor();
+    // Test zones are right triangles filling the top-left half of their bounding
+    // box, so the box center sits exactly on the diagonal edge (only the thin
+    // outline is hittable there). Click well inside the fill instead, without
+    // force, so Playwright checks the point really hits the zone.
+    const box = await zone.boundingBox();
+    await zone.click({ position: { x: box.width * 0.25, y: box.height * 0.25 } });
 
     const modal = page.locator('.modal-overlay', { has: page.locator('.popup-hint') });
     await expect(page.locator('.popup-hint')).toBeVisible();
