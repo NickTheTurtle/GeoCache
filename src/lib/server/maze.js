@@ -223,7 +223,6 @@ h1{font-size:2.2rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 .5e
 .s{display:block;line-height:1.25em}
 .armed{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;visibility:hidden}
 .armed span{padding:12px 18px;border:2px solid #b23a3a;border-radius:10px;background:#fbe3e1;color:#7a1f1f;font:bold 1.25rem/1.35 Georgia,serif;text-align:center}
-.armed small{display:block;margin-top:.3em;font:14px system-ui,sans-serif}
 .g{display:grid;grid-template-columns:repeat(var(--w),var(--s));background:#fbf4e2;box-shadow:0 2px 10px rgba(60,35,5,.25)}
 .c{width:var(--s);height:var(--s);border:0 solid #2b1d0e}
 .n{border-top-width:2px}.w{border-left-width:2px}.e{border-right-width:2px}.s{border-bottom-width:2px}
@@ -234,8 +233,15 @@ h1{font-size:2.2rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 .5e
 a.ar{display:none;position:relative;z-index:1}
 a.ar:active{background:#c9731a;color:#fff}
 a.ar:focus-visible{outline:3px solid #1f4f8f;outline-offset:2px}
-.win{display:none;margin:1em auto 0;max-width:520px;padding:12px;border:2px solid #2d6a2d;border-radius:10px;background:#e3f3dc;color:#173d17;font-weight:bold;font-size:1.3rem}
-.win img{display:block;max-width:100%;height:auto;margin:.5em auto 0;border-radius:6px}
+.win{display:none;margin:1em auto 0;max-width:520px;padding:12px;border:2px solid #2d6a2d;border-radius:10px;background:#e3f3dc;color:#173d17}
+.win .got{margin:.1em 0 .6em;font-weight:bold;font-size:1.3rem}
+.win .say{margin-bottom:.9em;color:#2b1d0e}
+.win .say p+p{margin-top:.6em}
+.reward summary{display:inline-block;list-style:none;cursor:pointer;padding:10px 22px;border-radius:999px;border:2px solid #173d17;background:#2d6a2d;color:#fff;font:bold 16px system-ui,sans-serif;letter-spacing:.03em}
+.reward summary::-webkit-details-marker{display:none}
+.reward summary:focus-visible{outline:3px solid #1f4f8f;outline-offset:2px}
+.reward[open] summary{display:none}
+.win img{display:block;max-width:100%;height:auto;margin:.2em auto 0;border-radius:6px}
 .ctl{margin-top:1.2em}
 .ctl a{display:inline-block;font:bold 15px system-ui,sans-serif;padding:8px 18px;border-radius:999px;border:2px solid #2b1d0e;background:#fff8e6;color:#2b1d0e;text-decoration:none}
 .ctl a:focus-visible{outline:3px solid #1f4f8f;outline-offset:2px}
@@ -315,7 +321,7 @@ export function countdown(minutes, exitId) {
     `@keyframes arm{to{visibility:hidden}}.pad{animation:arm 0s ${total}s forwards}` +
     `@keyframes alarm{to{visibility:visible}}.armed{animation:alarm 0s ${total}s forwards}` +
     `#${exitId}:target~.b .t,#${exitId}:target~.b .s{animation-play-state:paused}`;
-  const armed = '<div class="armed"><span>Lasers re-armed!<small>Reload the page to try again.</small></span></div>';
+  const armed = '<div class="armed"><span>Lasers re-armed!</span></div>';
   return { html, css, armed };
 }
 
@@ -394,7 +400,15 @@ ${markers.join('')}
 <div class="io out">&darr; Target</div>
 </div>
 <nav class="pad" aria-label="Move">${placeholders.join('')}${moves.join('')}${timer.armed}</nav>
-<div class="win">Target acquired!<img src="${image.src}" alt="${escapeAttr(image.alt)}"></div>
+<div class="win">
+<p class="got">Target acquired!</p>
+<section class="say">
+<p class="who">Flabber Geese:</p>
+<p>“I’m genuinely impressed. You did it. You stole their router. Now the Museum won’t have any Internet. They’re going to be so annoyed. Just imagine their faces.</p>
+<p>“What are you still standing there for? Run!”</p>
+</section>
+<details class="reward"><summary>Claim Reward</summary><img src="${image.src}" alt="${escapeAttr(image.alt)}"></details>
+</div>
 <p class="ctl"><a href="#">Start over</a></p>
 </div>
 </main>

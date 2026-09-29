@@ -30,7 +30,7 @@ test.describe('Maze (JavaScript disabled)', () => {
     await expect(page.locator('.g')).toHaveText('');
     await expect(page.locator('ul, .intro')).toHaveCount(0);
     await expect(page.locator('.win img')).toBeHidden();
-    const say = page.locator('.say');
+    const say = page.locator('main > .say'); // the intro, not the win screen's
     await expect(say.locator('.who')).toHaveText('Flabber Geese:');
     await expect(say).toContainText('“Wow, you actually made it on time. I had very little faith in you.');
     await expect(say).toContainText('I disabled the lasers. Grab the target, then scram.”');
@@ -69,14 +69,24 @@ test.describe('Maze (JavaScript disabled)', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('The Heist');
     await expect(page.locator('.io.in > span').first()).toHaveText('Entrance ↓');
     await expect(page.locator('.io.out')).toHaveText('↓ Target');
+    // Moving must not make the page jump around.
+    expect(await page.evaluate(() => window.scrollY)).toBe(startY);
+
+    // Flabber Geese's closing lines, then the reward stays hidden until claimed.
+    await expect(win.locator('.who')).toHaveText('Flabber Geese:');
+    await expect(win.locator('.say')).toContainText('“I’m genuinely impressed. You did it. You stole their router.');
+    await expect(win.locator('.say')).toContainText('Just imagine their faces.');
+    await expect(win.locator('.say')).toContainText('“What are you still standing there for? Run!”');
     const img = win.locator('img');
+    await expect(img).toBeHidden();
+    const claim = win.getByText('Claim Reward', { exact: true });
+    await claim.click();
     await expect(img).toBeVisible();
+    await expect(claim).toBeHidden();
     expect(await img.evaluate((el) => el.naturalWidth)).toBeGreaterThan(0);
     // The prize is the repo's QR code, embedded byte-for-byte.
     const prize = readFileSync(new URL('../assets/maze-prize.png', import.meta.url)).toString('base64');
     expect(await img.getAttribute('src')).toBe(`data:image/png;base64,${prize}`);
-    // Moving must not make the page jump around.
-    expect(await page.evaluate(() => window.scrollY)).toBe(startY);
 
     // Back undoes a move.
     await page.goBack();
@@ -136,7 +146,7 @@ test.describe('Heist countdown (CSS only)', () => {
       expect(await shown(page), `at ${t}s`).toBe('0:00');
       for (const name of ['Up', 'Down', 'Left', 'Right']) await expect(pad.getByRole('link', { name })).toBeHidden();
       await expect(armed).toBeVisible();
-      await expect(armed).toContainText('Lasers re-armed!');
+      await expect(armed).toHaveText('Lasers re-armed!');
     }
   });
 
