@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { loadLeaflet, addBaseLayer, SF_CENTER } from '$lib/leaflet.js';
+  import BrandIcon from '$lib/BrandIcon.svelte';
 
   const PW_KEY = 'geocache_admin_pw';
 
@@ -507,12 +508,12 @@
 </script>
 
 <svelte:head>
-  <title>Admin · Adventure Hunt</title>
+  <title>Admin · C.A.R.E.</title>
 </svelte:head>
 
 <div class="topbar">
   <div class="brand">
-    <h1><svg class="brand-ico" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v13M5.5 12A6.5 6.5 0 0 0 12 20a6.5 6.5 0 0 0 6.5-8M5.5 12H3l1.6-2M18.5 12H21l-1.6-2"/></svg> Admin</h1>
+    <h1><BrandIcon /> Admin</h1>
   </div>
   <div class="spacer"></div>
   <a href="/"><button class="badge">Map</button></a>

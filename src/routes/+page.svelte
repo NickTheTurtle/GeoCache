@@ -4,6 +4,7 @@
   import { loadLeaflet, addBaseLayer, SF_CENTER } from '$lib/leaflet.js';
   import { escapeHtml, zoneStyle, CHECK_ICON, extractSecret, renderHint } from '$lib/util.js';
   import Celebration from '$lib/Celebration.svelte';
+  import BrandIcon from '$lib/BrandIcon.svelte';
 
   // Reactive UI state
   let currentCrew = $state(null);
@@ -238,7 +239,7 @@
   async function onScanSuccess(decodedText) {
     const secret = extractSecret(decodedText);
     if (!secret) {
-      scanMsg = 'That doesn\u2019t look like a GeoCache QR code.';
+      scanMsg = 'That doesn\u2019t look like a C.A.R.E. QR code.';
       scanMsgClass = 'err';
       return;
     }
@@ -501,12 +502,12 @@
 </script>
 
 <svelte:head>
-  <title>Adventure Hunt</title>
+  <title>C.A.R.E.</title>
 </svelte:head>
 
 <div class="topbar">
   <div class="brand">
-    <h1><svg class="brand-ico" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v13M5.5 12A6.5 6.5 0 0 0 12 20a6.5 6.5 0 0 0 6.5-8M5.5 12H3l1.6-2M18.5 12H21l-1.6-2"/></svg> Adventure Hunt</h1>
+    <h1><BrandIcon /> C.A.R.E.</h1>
   </div>
   <div class="spacer"></div>
   {#if currentCrew}

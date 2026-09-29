@@ -9,7 +9,7 @@ export function GET({ request, url }) {
   return new Response(body, {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="geocache-zones.json"',
+      'Content-Disposition': 'attachment; filename="care-zones.json"',
       'Cache-Control': 'no-store',
     },
   });

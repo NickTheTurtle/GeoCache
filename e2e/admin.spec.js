@@ -103,6 +103,6 @@ test.describe('Admin console', () => {
       page.waitForEvent('download'),
       page.getByRole('button', { name: 'Export zones' }).click(),
     ]);
-    expect(download.suggestedFilename()).toBe('geocache-zones.json');
+    expect(download.suggestedFilename()).toBe('care-zones.json');
   });
 });

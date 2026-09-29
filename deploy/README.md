@@ -1,4 +1,8 @@
-# Deploying GeoCache SF to AWS EC2 (free tier)
+# Deploying C.A.R.E. to AWS EC2 (free tier)
+
+The live site is <https://care.dxu.info>. Server-side names (the `geocache`
+service and user, `/opt/geocache`, `/etc/geocache.env`, the database file) keep
+the app's original name, so existing installs keep working.
 
 This app is a long-lived Node server that stores everything in a SQLite file on
 disk. That means **serverless hosts (AWS Amplify, App Runner, Lambda) will not
@@ -71,7 +75,7 @@ export GITHUB_TOKEN='github_pat_...'   # the same PAT, so the script can clone t
 
 # Optional: use your own domain instead of sslip.io
 #   (point its DNS A record at this instance's public IP first)
-# export DOMAIN='geocache.example.com'
+# export DOMAIN='care.dxu.info'
 # export ACME_EMAIL='you@example.com'
 
 sudo -E bash deploy/ec2-setup.sh

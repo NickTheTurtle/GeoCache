@@ -14,7 +14,7 @@ async function openLeaderboard(page) {
 test.describe('Main map page', () => {
   test('loads with header, map, scan button and tabs visible', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveTitle(/Adventure Hunt/);
+    await expect(page).toHaveTitle(/C\.A\.R\.E\./);
     await expectLegible(page.locator('.brand h1'));
 
     // Map tiles/container present (#map itself gets the leaflet-container class).
@@ -23,6 +23,24 @@ test.describe('Main map page', () => {
 
     // Scan button legible.
     await expectLegible(page.locator('.scan-fab'));
+  });
+
+  test('shows the C.A.R.E. rabbit logo and serves the favicons', async ({ page, request }) => {
+    await page.goto('/');
+    await expect(page.locator('.brand h1')).toHaveText('C.A.R.E.');
+    await expect(page.locator('.brand h1 svg.brand-ico')).toBeVisible();
+
+    const icons = {
+      'link[rel="icon"][type="image/svg+xml"]': 'image/svg+xml',
+      'link[rel="icon"][sizes="48x48"]': 'image/x-icon',
+      'link[rel="apple-touch-icon"]': 'image/png',
+    };
+    for (const [selector, type] of Object.entries(icons)) {
+      const href = await page.locator(selector).getAttribute('href');
+      const res = await request.get(href);
+      expect(res.status(), href).toBe(200);
+      expect(res.headers()['content-type'], href).toContain(type);
+    }
   });
 
   test('leaderboard lists seeded crews with points', async ({ page }) => {
