@@ -16,6 +16,25 @@ import { handler } from './build/handler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// adapter-node's static file server has no MIME type for .ico and would send an
+// empty Content-Type, so serve the favicon (copied from static/) here.
+const faviconPath = path.join(__dirname, 'build', 'client', 'favicon.ico');
+const favicon = fs.existsSync(faviconPath) ? fs.readFileSync(faviconPath) : null;
+
+function app(req, res) {
+  const isRead = req.method === 'GET' || req.method === 'HEAD';
+  if (favicon && isRead && req.url.split('?')[0] === '/favicon.ico') {
+    res.writeHead(200, {
+      'Content-Type': 'image/x-icon',
+      'Content-Length': favicon.length,
+      'Cache-Control': 'public, max-age=86400',
+    });
+    res.end(req.method === 'HEAD' ? undefined : favicon);
+    return;
+  }
+  handler(req, res);
+}
+
 const PORT = Number(process.env.PORT || 3000);
 const HTTPS_PORT = Number(process.env.HTTPS_PORT || 443);
 const HTTP_PORT = Number(process.env.HTTP_PORT || 80);
@@ -31,8 +50,8 @@ if (httpsEnabled) {
   const httpsPorts = [...new Set([HTTPS_PORT, PORT])];
   for (const p of httpsPorts) {
     https
-      .createServer(creds, handler)
-      .listen(p, () => console.log(`GeoCache SF running on https://localhost:${p}`))
+      .createServer(creds, app)
+      .listen(p, () => console.log(`CARE running on https://localhost:${p}`))
       .on('error', (err) => console.log(`HTTPS not started on port ${p}: ${err.message}`));
   }
 
@@ -48,9 +67,9 @@ if (httpsEnabled) {
     .on('error', (err) => console.log(`HTTP redirect not started on port ${HTTP_PORT}: ${err.message}`));
 } else {
   http
-    .createServer(handler)
+    .createServer(app)
     .listen(PORT, () => {
-      console.log(`GeoCache SF running on http://localhost:${PORT}`);
+      console.log(`CARE running on http://localhost:${PORT}`);
       console.log('Tip: run `npm run gen-cert` to enable HTTPS (needed for the QR scanner on phones).');
     });
 }

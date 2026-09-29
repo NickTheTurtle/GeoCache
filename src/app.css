@@ -1,5 +1,5 @@
 /* ==========================================================================
-   GeoCache SF - "Nautical Explorer" theme
+   CARE - "Nautical Explorer" theme
    Deep navy + brass/gold on aged sea-chart cream.
    Type: Cinzel (engraved caps) · Cormorant Garamond (serif) · Inter (body)
    ========================================================================== */
@@ -268,7 +268,7 @@ path.leaflet-interactive:focus,
 svg.leaflet-zoom-animated:focus { outline: none; }
 
 /* Inline icons */
-.brand-ico { width: 1em; height: 1em; vertical-align: -2px; color: var(--brass-bright); }
+.brand-ico { width: 1.25em; height: 1.25em; vertical-align: -.25em; }
 .h2-ico { width: .95em; height: .95em; vertical-align: -1px; color: var(--brass); }
 .ico-check { width: 1em; height: 1em; vertical-align: -2px; }
 .locate-btn svg { width: 18px; height: 18px; color: var(--navy); }

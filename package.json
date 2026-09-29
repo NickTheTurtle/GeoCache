@@ -11,7 +11,8 @@
     "test": "node --test tests/**/*.test.js",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "gen-cert": "node scripts/gen-cert.js"
+    "gen-cert": "node scripts/gen-cert.js",
+    "gen-icons": "node scripts/gen-icons.js"
   },
   "engines": {
     "node": ">=22.5.0"
