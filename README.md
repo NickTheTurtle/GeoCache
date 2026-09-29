@@ -48,6 +48,16 @@ E2E tests (`e2e/`) drive locally-installed Microsoft Edge (no browser download)
 against an isolated server on ports 8443/8080 with its own throwaway `DATA_DIR`,
 so they never touch real game data. They cover the map, claim modal, admin
 console, and mobile layout, and assert text legibility (contrast).
+They need `npm run gen-cert` first, so the test server can serve HTTPS.
+
+## Making changes
+
+`main` is protected: every change goes through a pull request, and the
+**CI** workflow (`.github/workflows/ci.yml`: unit tests, build, and the full
+e2e suite in Edge) must pass before it can merge. Direct pushes to `main` are
+blocked, admins included. Once a PR merges, the server deploys it
+automatically after CI passes on `main` (see
+[deploy/README.md](./deploy/README.md#auto-deploy-after-a-pr-merges)).
 
 ## How to play
 
@@ -128,9 +138,10 @@ database, so serverless hosts (Amplify, Lambda) won't work.
 ## Project structure
 
 ```
+.github/workflows/ci.yml  CI: unit tests, build, e2e (required for PRs to main)
 server.js                 HTTPS/HTTP launcher wrapping the adapter-node build
 scripts/gen-cert.js       Generates a self-signed TLS cert for LAN HTTPS
-deploy/                   EC2 setup + update scripts
+deploy/                   EC2 setup, update, and auto-deploy scripts
 src/
   app.css                 Shared styles
   lib/

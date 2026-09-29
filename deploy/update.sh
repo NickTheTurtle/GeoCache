@@ -6,12 +6,16 @@
 #   export GITHUB_TOKEN='github_pat_...'
 #   sudo -E bash /opt/geocache/deploy/update.sh
 #
+# Set DEPLOY_SHA to deploy one exact commit instead of the tip of GIT_REF (the
+# auto-deploy uses this to ship the commit CI tested, or to roll back).
+#
 set -euo pipefail
 
 APP_DIR="/opt/geocache"
 DATA_DIR="/var/lib/geocache"
 APP_USER="geocache"
 GIT_REF="${GIT_REF:-main}"
+DEPLOY_SHA="${DEPLOY_SHA:-}"
 
 if [[ $EUID -ne 0 ]]; then
   echo "Please run as root (sudo -E bash ${APP_DIR}/deploy/update.sh)" >&2
@@ -24,10 +28,16 @@ if [[ -n "${GITHUB_TOKEN:-}" ]]; then
   CLONE_URL="https://x-access-token:${GITHUB_TOKEN}@${REPO_URL#https://}"
 fi
 
-echo "==> Fetching latest ${GIT_REF}"
 git -C "$APP_DIR" remote set-url origin "$CLONE_URL"
-git -C "$APP_DIR" fetch --depth 1 origin "$GIT_REF"
-git -C "$APP_DIR" reset --hard "origin/${GIT_REF}"
+if [[ -n "$DEPLOY_SHA" ]]; then
+  echo "==> Fetching commit ${DEPLOY_SHA}"
+  git -C "$APP_DIR" fetch --depth 1 origin "$DEPLOY_SHA"
+  git -C "$APP_DIR" reset --hard "$DEPLOY_SHA"
+else
+  echo "==> Fetching latest ${GIT_REF}"
+  git -C "$APP_DIR" fetch --depth 1 origin "$GIT_REF"
+  git -C "$APP_DIR" reset --hard "origin/${GIT_REF}"
+fi
 git -C "$APP_DIR" remote set-url origin "$REPO_URL"   # scrub token
 
 echo "==> Rebuilding"

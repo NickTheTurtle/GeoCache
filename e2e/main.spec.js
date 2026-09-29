@@ -14,7 +14,7 @@ async function openLeaderboard(page) {
 test.describe('Main map page', () => {
   test('loads with header, map, scan button and tabs visible', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveTitle(/GeoCache SF/);
+    await expect(page).toHaveTitle(/Adventure Hunt/);
     await expectLegible(page.locator('.brand h1'));
 
     // Map tiles/container present (#map itself gets the leaflet-container class).

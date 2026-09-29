@@ -120,6 +120,37 @@ export GITHUB_TOKEN='github_pat_...'   # only needed for a private repo
 sudo -E bash /opt/geocache/deploy/update.sh
 ```
 
+With auto-deploy on (below) you normally don't need this.
+
+### Auto-deploy after a PR merges
+
+A systemd timer checks GitHub every 2 minutes. When `main` has a new commit and
+the **CI** workflow has passed on that exact commit, it deploys it with
+`update.sh`. It then checks that `/` and `/heist` answer, and rolls back to the
+previous commit if the build or that check fails. Commits whose CI failed are
+never deployed. Nothing needs to reach into the server: it pulls, so there's no
+SSH access or deploy secret on GitHub.
+
+Turn it on once, after the box has code that includes `deploy/auto-deploy.sh`:
+
+```bash
+sudo -E bash /opt/geocache/deploy/update.sh              # if the box predates auto-deploy
+sudo bash /opt/geocache/deploy/install-auto-deploy.sh
+```
+
+For a private repo, pass a read-only token so it can see `main` and CI results:
+`sudo GITHUB_TOKEN='github_pat_...' bash /opt/geocache/deploy/install-auto-deploy.sh`.
+
+```bash
+sudo journalctl -u geocache-auto-deploy -e             # what it did, and why
+systemctl list-timers geocache-auto-deploy.timer       # when it next runs
+sudo systemctl start geocache-auto-deploy              # check right now
+sudo systemctl disable --now geocache-auto-deploy.timer  # turn it off
+```
+
+A merged PR typically goes live 5 to 10 minutes after merging: CI on `main`,
+then up to 2 minutes until the next check, then the rebuild.
+
 ### Back up / restore the database
 
 ```bash
