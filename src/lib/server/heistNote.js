@@ -3,7 +3,7 @@
 // the Museum"). Like the maze, it is a self-contained page with no scripts.
 
 const PARAGRAPHS = [
-  'You’re the most unreliable, worthless piece of rookie meat I’ve ever had the fortune to encounter. I TOLD you to be on time. “Not a second too late,” I said. I even waited an extra 30 minutes for your sorry asses.',
+  'You’re the most unreliable, worthless pieces of rookie meat I’ve ever had the misfortune to encounter. I TOLD you to be on time. “Not a second too late,” I said. I even waited an extra 30 minutes for your sorry asses.',
   'Sigh. I can’t believe I’m saying this. There’s one way you can redeem yourself. While scoping the museum, I discovered this truly incredible machine from the Museum, free to the public. Prove to me that there’s something resembling intelligence in those thick skulls of yours. Use that machine and come back here ON TIME.',
 ];
 

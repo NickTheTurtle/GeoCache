@@ -9,7 +9,7 @@ test('heist note is a self-contained page with the full letter', () => {
   assert.match(html, /<title>The Heist<\/title>/);
   for (const text of [
     'Dear idiots,',
-    'You’re the most unreliable, worthless piece of rookie meat',
+    'You’re the most unreliable, worthless pieces of rookie meat I’ve ever had the misfortune to encounter.',
     '“Not a second too late,” I said.',
     'I even waited an extra 30 minutes for your sorry asses.',
     'machine from the Museum, free to the public.',
