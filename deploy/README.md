@@ -127,9 +127,10 @@ With auto-deploy on (below) you normally don't need this.
 A systemd timer checks GitHub every 2 minutes. When `main` has a new commit and
 the **CI** workflow has passed on that exact commit, it deploys it with
 `update.sh`. It then checks that `/` and `/heist` answer, and rolls back to the
-previous commit if the build or that check fails. Commits whose CI failed are
-never deployed. Nothing needs to reach into the server: it pulls, so there's no
-SSH access or deploy secret on GitHub.
+previous commit if the build or that check fails. A commit whose CI failed isn't
+deployed, but it's re-checked every run, so re-running CI (Actions → the run →
+"Re-run failed jobs") and getting a pass deploys it. Nothing needs to reach into
+the server: it pulls, so there's no SSH access or deploy secret on GitHub.
 
 Turn it on once, after the box has code that includes `deploy/auto-deploy.sh`:
 

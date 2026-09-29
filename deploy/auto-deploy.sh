@@ -6,7 +6,8 @@
 # deploy/install-auto-deploy.sh). Each run:
 #   1. Compares main on GitHub with the commit checked out in /opt/geocache.
 #   2. If main moved, looks up the CI workflow run for that exact commit.
-#      Still running: try again next time. Failed: skip that commit for good.
+#      Still running, or failed: check again next time (so re-running a
+#      failed CI run to a pass still deploys it).
 #   3. On success, deploys that exact commit with update.sh, then checks the
 #      site answers. If the deploy or the check fails, it rolls back to the
 #      previous commit.
@@ -119,8 +120,11 @@ main() {
   case "$state" in
     "completed success") ;;
     completed\ *)
-      log "CI did not pass for ${remote:0:7} (${state#completed }); not deploying it."
-      touch "$STATE_DIR/failed-$remote"
+      # Not permanent: re-checked every run, so re-running CI to a pass deploys it.
+      if [[ ! -e "$STATE_DIR/ci-failed-$remote" ]]; then
+        log "CI did not pass for ${remote:0:7} (${state#completed }); not deploying it unless a re-run passes."
+        touch "$STATE_DIR/ci-failed-$remote"
+      fi
       return 0 ;;
     *)
       if [[ ! -e "$STATE_DIR/waiting-$remote" ]]; then
@@ -133,7 +137,7 @@ main() {
   log "Deploying ${remote:0:7} (was ${current:0:7})"
   if deploy_sha "$remote" && healthy; then
     echo "$remote" > "$STATE_DIR/last-deployed"
-    rm -f "$STATE_DIR"/waiting-*
+    rm -f "$STATE_DIR"/waiting-* "$STATE_DIR"/ci-failed-*
     log "Deployed ${remote:0:7}."
     return 0
   fi
