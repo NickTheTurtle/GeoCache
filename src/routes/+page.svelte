@@ -451,6 +451,10 @@
 
   let interval;
   onMount(async () => {
+    // Listen before any awaits: the claim modal can open right away, and Escape
+    // should close it without waiting for the map and zones to load.
+    window.addEventListener('keydown', onKeydown);
+    window.addEventListener('click', onDocClick);
     const claimParam = new URLSearchParams(location.search).get('c');
     await adoptCrewFromUrl();
     if (claimParam) openClaim(claimParam); // pop the claim modal (parallel with map init)
@@ -484,9 +488,6 @@
     setTimeout(applyStart, 300);
     await loadLeaderboard();
     interval = setInterval(() => { loadZones(); loadLeaderboard(); }, 15000);
-
-    window.addEventListener('keydown', onKeydown);
-    window.addEventListener('click', onDocClick);
   });
 
   onDestroy(() => {
