@@ -121,7 +121,10 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 - **`/heist72`** serves the heist maze (`src/lib/server/maze.js`) so the Wayback
   Machine can capture it. Players go from the Entrance to the Target with an
   on-screen arrow pad; reaching the Target shows "Target acquired!" and the QR
-  code in `assets/maze-prize.png`, inlined into the page.
+  code in `assets/maze-prize.png`, inlined into the page. A 5:00 countdown
+  (also pure CSS) turns red for the last minute, stops when the Target is
+  reached, and at 0:00 replaces the arrow pad with "Lasers re-armed!".
+  Reloading restarts it, since a static page can't remember when a player started.
 
 Both are self-contained pages (inline CSS, no scripts or external assets) with a
 60-second cache. The maze uses no JavaScript: each square is an in-page `#code`

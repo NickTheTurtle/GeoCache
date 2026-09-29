@@ -13,6 +13,7 @@ import {
   makeCodes,
   imageFromFile,
   resolveSeed,
+  countdown,
   DEFAULT_IMAGE,
 } from '../src/lib/server/maze.js';
 
@@ -133,4 +134,29 @@ test('resolveSeed: MAZE_SEED wins, else one private seed is created and kept in 
 
   const nested = path.join(dir, 'not', 'yet', 'created');
   assert.match(resolveSeed({ DATA_DIR: nested }), /^[0-9a-f]{32}$/, 'creates DATA_DIR if needed');
+});
+
+test('countdown: 5:00 timer CSS with a lock at 0:00 and a pause on win', () => {
+  const { html, css, armed } = countdown(5, 'exitid');
+  assert.match(html, /role="timer"/);
+  assert.equal((html.match(/class="d"/g) || []).length, 3, 'minute, tens and ones windows');
+  assert.match(html, /class="s tm">5<br>4<br>3<br>2<br>1<br>0</);
+  assert.match(css, /\.t1\{animation:t1 10s steps\(10,end\) 30 forwards\}/);
+  assert.match(css, /\.t10\{animation:t10 60s steps\(6,end\) -59s 5\.983333 forwards\}/);
+  assert.match(css, /\.tm\{animation:tm 300s step-end forwards\}/);
+  assert.match(css, /\.t\{animation:hurry 0s 240s forwards\}/, 'turns red at 1:00');
+  assert.match(css, /\.pad\{animation:arm 0s 300s forwards\}/);
+  assert.match(css, /\.armed\{animation:alarm 0s 300s forwards\}/);
+  assert.match(css, /#exitid:target~\.b \.t,#exitid:target~\.b \.s\{animation-play-state:paused\}/);
+  assert.match(armed, /Lasers re-armed!/);
+
+  const two = countdown(2, 'x');
+  assert.match(two.css, /\.pad\{animation:arm 0s 120s forwards\}/);
+  assert.match(two.css, /\.t\{animation:hurry 0s 60s forwards\}/);
+  assert.throws(() => countdown(0, 'x'), /minutes must be/);
+  assert.throws(() => countdown(10, 'x'), /minutes must be/);
+
+  const page = renderMazePage(buildMaze({ seed: 'timer', w: 6, h: 6 }));
+  assert.ok(page.includes('role="timer"') && page.includes('Lasers re-armed!'));
+  assert.doesNotMatch(page, /<script/i);
 });

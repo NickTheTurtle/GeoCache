@@ -67,7 +67,7 @@ test.describe('Maze (JavaScript disabled)', () => {
     await expect(win).toContainText('Target acquired!');
     await expect(page).toHaveTitle('The Heist');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('The Heist');
-    await expect(page.locator('.io.in')).toHaveText('Entrance ↓');
+    await expect(page.locator('.io.in > span').first()).toHaveText('Entrance ↓');
     await expect(page.locator('.io.out')).toHaveText('↓ Target');
     const img = win.locator('img');
     await expect(img).toBeVisible();
@@ -87,5 +87,65 @@ test.describe('Maze (JavaScript disabled)', () => {
     await page.getByRole('link', { name: 'Start over' }).click();
     await expectArrowsFor(page, maze.start);
     await expect(win).toBeHidden();
+  });
+});
+
+test.describe('Heist countdown (CSS only)', () => {
+  // The page has no scripts. JavaScript is on here only so the test can
+  // fast-forward the CSS animations instead of waiting 5 real minutes.
+  async function at(page, seconds) {
+    await page.evaluate((ms) => {
+      for (const a of document.getAnimations()) { a.pause(); a.currentTime = ms; }
+    }, seconds * 1000);
+  }
+  // Read the digit each window actually shows, from its strip's computed offset.
+  const shown = (page) =>
+    page.evaluate(() => {
+      const digit = (sel) => {
+        const s = document.querySelector(sel);
+        const cs = getComputedStyle(s);
+        const ty = new DOMMatrix(cs.transform === 'none' ? undefined : cs.transform).m42;
+        return s.textContent[Math.round(-ty / parseFloat(cs.lineHeight))];
+      };
+      return `${digit('.tm')}:${digit('.t10')}${digit('.t1')}`;
+    });
+  const red = (page) => page.locator('.t').evaluate((el) => getComputedStyle(el).color === 'rgb(178, 58, 58)');
+
+  test('counts down from 5:00, turns red for the last minute, re-arms at 0:00', async ({ page }) => {
+    await page.goto('/heist72');
+    await expect(page.getByRole('timer')).toBeVisible();
+    const pad = page.locator('.pad');
+    const armed = page.locator('.armed');
+    for (const [t, want] of [[0, '5:00'], [0.5, '5:00'], [1.5, '4:59'], [9.5, '4:51'], [10.5, '4:50'],
+      [11.5, '4:49'], [59.5, '4:01'], [60.5, '4:00'], [61.5, '3:59'], [150.5, '2:30'], [239.5, '1:01']]) {
+      await at(page, t);
+      expect(await shown(page), `at ${t}s`).toBe(want);
+    }
+    expect(await red(page)).toBe(false);
+    await at(page, 240.5);
+    expect(await shown(page)).toBe('1:00');
+    expect(await red(page)).toBe(true);
+
+    await at(page, 299.5);
+    expect(await shown(page)).toBe('0:01');
+    await expect(pad.getByRole('link', { name: 'Right' })).toBeVisible();
+    await expect(armed).toBeHidden();
+
+    for (const t of [300.5, 400]) {
+      await at(page, t);
+      expect(await shown(page), `at ${t}s`).toBe('0:00');
+      for (const name of ['Up', 'Down', 'Left', 'Right']) await expect(pad.getByRole('link', { name })).toBeHidden();
+      await expect(armed).toBeVisible();
+      await expect(armed).toContainText('Lasers re-armed!');
+    }
+  });
+
+  test('the clock stops once the target is acquired', async ({ page }) => {
+    await page.goto('/heist72');
+    const state = () => page.locator('.t1').evaluate((el) => getComputedStyle(el).animationPlayState);
+    expect(await state()).toBe('running');
+    await page.goto(`/heist72#${maze.codes.id[maze.exit]}`);
+    await expect(page.locator('.win')).toBeVisible();
+    expect(await state()).toBe('paused');
   });
 });

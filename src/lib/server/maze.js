@@ -217,11 +217,17 @@ h1{font-size:2.2rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 .5e
 .mk{display:none}
 .b{display:inline-block;--s:min(calc((100vw - 40px)/var(--w)),34px)}
 .io{font:bold 13px/1.4 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#7a4b12}
-.in{text-align:left}.out{text-align:right}
+.in{display:flex;justify-content:space-between;align-items:flex-end}.out{text-align:right}
+.t{font:bold 20px system-ui,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.02em;text-transform:none;color:#2b1d0e}
+.d{display:inline-block;height:1.25em;overflow:hidden;vertical-align:bottom}
+.s{display:block;line-height:1.25em}
+.armed{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;visibility:hidden}
+.armed span{padding:12px 18px;border:2px solid #b23a3a;border-radius:10px;background:#fbe3e1;color:#7a1f1f;font:bold 1.25rem/1.35 Georgia,serif;text-align:center}
+.armed small{display:block;margin-top:.3em;font:14px system-ui,sans-serif}
 .g{display:grid;grid-template-columns:repeat(var(--w),var(--s));background:#fbf4e2;box-shadow:0 2px 10px rgba(60,35,5,.25)}
 .c{width:var(--s);height:var(--s);border:0 solid #2b1d0e}
 .n{border-top-width:2px}.w{border-left-width:2px}.e{border-right-width:2px}.s{border-bottom-width:2px}
-.pad{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,64px);gap:8px;justify-content:center;margin:1.2em auto 0}
+.pad{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,64px);gap:8px;justify-content:center;margin:1.2em auto 0;position:relative}
 .ar{display:flex;align-items:center;justify-content:center;border:2px solid #2b1d0e;border-radius:16px;background:#fff8e6;color:#2b1d0e;font:bold 30px/1 system-ui,sans-serif;text-decoration:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .off{opacity:.25;border-style:dashed;pointer-events:none}
 .u{grid-area:1/2}.l{grid-area:2/1}.r{grid-area:2/3}.d{grid-area:3/2}
@@ -272,9 +278,51 @@ export function imageFromFile(file, alt = 'The prize') {
 
 const escapeAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
+// A no-JavaScript M:SS countdown. Each digit is a vertical strip of numbers in a
+// one-line window, slid up by a CSS animation: ones every second, tens every 10s,
+// minutes every 60s. Times are offset by 1s so "5:00" shows for the first second
+// like a normal countdown, and trailing duplicates keep the final "0" in view
+// after the last step. It starts on page load (a reload restarts it) and keeps
+// running as the player moves, since moves only change the URL fragment.
+// At 0:00 the arrow pad hides and "Lasers re-armed!" shows in its place.
+export function countdown(minutes, exitId) {
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 9) throw new Error('minutes must be 1 to 9');
+  const total = minutes * 60;
+  const line = 1.25; // em per digit, matches .s/.d in CSS
+  const strip = (cls, digits) =>
+    `<span class="d" aria-hidden="true"><span class="s ${cls}">${digits.join('<br>')}</span></span>`;
+  const up = (k) => `transform:translateY(-${+(k * line).toFixed(4)}em)`;
+
+  const minuteDigits = [...Array(minutes + 1).keys()].reverse(); // M … 0
+  const minuteFrames = ['0%{transform:none}'];
+  for (let k = 0; k < minutes; k++) {
+    minuteFrames.push(`${+(((1 + 60 * k) / total) * 100).toFixed(4)}%{${up(k + 1)}}`);
+  }
+  minuteFrames.push(`100%{${up(minutes)}}`);
+
+  const html =
+    `<span class="t" role="timer" aria-label="${minutes}-minute countdown">` +
+    strip('tm', minuteDigits) +
+    ':' +
+    strip('t10', [5, 4, 3, 2, 1, 0, 0]) +
+    strip('t1', [0, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]) +
+    '</span>';
+  const css =
+    `@keyframes tm{${minuteFrames.join('')}}.tm{animation:tm ${total}s step-end forwards}` +
+    `@keyframes t10{to{${up(6)}}}.t10{animation:t10 60s steps(6,end) -59s ${+((total + 59) / 60).toFixed(6)} forwards}` +
+    `@keyframes t1{to{${up(10)}}}.t1{animation:t1 10s steps(10,end) ${total / 10} forwards}` +
+    `@keyframes hurry{to{color:#b23a3a}}.t{animation:hurry 0s ${total - 60}s forwards}` +
+    `@keyframes arm{to{visibility:hidden}}.pad{animation:arm 0s ${total}s forwards}` +
+    `@keyframes alarm{to{visibility:visible}}.armed{animation:alarm 0s ${total}s forwards}` +
+    `#${exitId}:target~.b .t,#${exitId}:target~.b .s{animation-play-state:paused}`;
+  const armed = '<div class="armed"><span>Lasers re-armed!<small>Reload the page to try again.</small></span></div>';
+  return { html, css, armed };
+}
+
 // Render the full, self-contained HTML page for a maze.
-export function renderMazePage(maze, { title = 'The Heist', image = DEFAULT_IMAGE } = {}) {
+export function renderMazePage(maze, { title = 'The Heist', image = DEFAULT_IMAGE, minutes = 5 } = {}) {
   const { w, h, open, start, exit, codes } = maze;
+  const timer = countdown(minutes, codes.id[exit]);
   const n = w * h;
   // The outer wall gets openings at the entrance (top of the start cell) and the
   // exit (bottom of the exit cell).
@@ -320,7 +368,8 @@ export function renderMazePage(maze, { title = 'The Heist', image = DEFAULT_IMAG
     `${current.join(',')}{background:#c9731a}` +
     `${shown.join(',')}{display:flex}` +
     `#${codes.id[exit]}:target~.win{display:block}` +
-    `#${codes.id[exit]}:target~.pad{display:none}`;
+    `#${codes.id[exit]}:target~.pad{display:none}` +
+    timer.css;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -340,11 +389,11 @@ export function renderMazePage(maze, { title = 'The Heist', image = DEFAULT_IMAG
 <div class="mz">
 ${markers.join('')}
 <div class="b" style="--w:${w}">
-<div class="io in">Entrance &darr;</div>
+<div class="io in"><span>Entrance &darr;</span>${timer.html}</div>
 <div class="g">${cells.join('')}</div>
 <div class="io out">&darr; Target</div>
 </div>
-<nav class="pad" aria-label="Move">${placeholders.join('')}${moves.join('')}</nav>
+<nav class="pad" aria-label="Move">${placeholders.join('')}${moves.join('')}${timer.armed}</nav>
 <div class="win">Target acquired!<img src="${image.src}" alt="${escapeAttr(image.alt)}"></div>
 <p class="ctl"><a href="#">Start over</a></p>
 </div>
