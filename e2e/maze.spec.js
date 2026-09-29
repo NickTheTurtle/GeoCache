@@ -30,6 +30,10 @@ test.describe('Maze (JavaScript disabled)', () => {
     await expect(page.locator('.g')).toHaveText('');
     await expect(page.locator('ul, .intro')).toHaveCount(0);
     await expect(page.locator('.win img')).toBeHidden();
+    const say = page.locator('.say');
+    await expect(say.locator('.who')).toHaveText('Flabber Goat:');
+    await expect(say).toContainText('“Wow, you actually made it on time. I had very little faith in you.');
+    await expect(say).toContainText('I disabled the lasers. Grab the target, then scram.”');
   });
 
   test('guessing the old sequential square numbers does nothing', async ({ page }) => {

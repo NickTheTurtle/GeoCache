@@ -211,6 +211,9 @@ html{background:#f3e7c9;color:#2b1d0e}
 body{margin:0;font:16px/1.5 Georgia,"Times New Roman",serif}
 main{max-width:760px;margin:0 auto;padding:20px 16px 40px;text-align:center}
 h1{font-size:2.2rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 .5em}
+.say{max-width:34em;margin:0 auto 1.1em;padding:14px 18px;text-align:left;background:#fdf8ea;border:1px solid #d9c49a;border-radius:4px;box-shadow:0 2px 8px rgba(60,35,5,.15)}
+.say p{margin:0}
+.say .who{font-weight:bold;margin-bottom:.3em}
 .mk{display:none}
 .b{display:inline-block;--s:min(calc((100vw - 40px)/var(--w)),34px)}
 .io{font:bold 13px/1.4 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#7a4b12}
@@ -230,6 +233,7 @@ a.ar:focus-visible{outline:3px solid #1f4f8f;outline-offset:2px}
 .ctl{margin-top:1.2em}
 .ctl a{display:inline-block;font:bold 15px system-ui,sans-serif;padding:8px 18px;border-radius:999px;border:2px solid #2b1d0e;background:#fff8e6;color:#2b1d0e;text-decoration:none}
 .ctl a:focus-visible{outline:3px solid #1f4f8f;outline-offset:2px}
+@media (max-width:600px){main{padding-top:12px}h1{margin-bottom:.3em}.say{margin-bottom:.8em;padding:10px 14px;font-size:15px}.pad{margin-top:.8em;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(3,58px);gap:6px}}
 `;
 
 const ARROWS = [
@@ -329,6 +333,10 @@ export function renderMazePage(maze, { title = 'The Heist', image = DEFAULT_IMAG
 <body>
 <main>
 <h1>${title}</h1>
+<section class="say">
+<p class="who">Flabber Goat:</p>
+<p>“Wow, you actually made it on time. I had very little faith in you. Well what are you waiting for? I disabled the lasers. Grab the target, then scram.”</p>
+</section>
 <div class="mz">
 ${markers.join('')}
 <div class="b" style="--w:${w}">
