@@ -334,7 +334,7 @@ export function renderMazePage(maze, { title = 'The Heist', image = DEFAULT_IMAG
 <main>
 <h1>${title}</h1>
 <section class="say">
-<p class="who">Flabber Goat:</p>
+<p class="who">Flabber Geese:</p>
 <p>“Wow, you actually made it on time. I had very little faith in you. Well what are you waiting for? I disabled the lasers. Grab the target, then scram.”</p>
 </section>
 <div class="mz">
