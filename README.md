@@ -111,16 +111,28 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 | `ADMIN_PASSWORD`  | `changeme` | Admin page password. **Change this.**   |
 | `DATA_DIR`        | `./data`   | Directory for the SQLite database file. |
 | `PUBLIC_BASE_URL` | (none)     | Public URL encoded in QR codes.         |
+| `MAZE_SEED`       | (generated) | `/heist72` layout and square codes. Default: random, kept in `DATA_DIR/maze-seed`. |
+| `MAZE_SIZE`       | `18`       | `/heist72` grid: `18` or `WxH` (5 to 40). |
 
-## The Heist (`/heist`)
+## The Heist (`/heist`, `/heist72`)
 
-`/heist` serves **a note from "Flabber Gast"** (`src/lib/server/heistNote.js`)
-telling players to use "the machine from the Museum", the Wayback Machine.
-The zero-JavaScript heist maze that used to live at this URL, and its QR-code
-prize, now exist only in the Wayback Machine's capture of `/heist`; the maze
-code and image were removed from the app so the live site can't reveal them.
-The note is a self-contained page (inline CSS, no scripts or assets) with a
-60-second cache, so edits show up quickly.
+- **`/heist`** serves **a note from "Flabber Gast"** (`src/lib/server/heistNote.js`)
+  telling players to use "the machine from the Museum", the Wayback Machine.
+- **`/heist72`** serves the heist maze (`src/lib/server/maze.js`) so the Wayback
+  Machine can capture it. Players go from the Entrance to the Target with an
+  on-screen arrow pad; reaching the Target shows "Target acquired!" and the QR
+  code in `assets/maze-prize.png`, inlined into the page.
+
+Both are self-contained pages (inline CSS, no scripts or external assets) with a
+60-second cache. The maze uses no JavaScript: each square is an in-page `#code`
+link and CSS `:target` tracks the position, so the archived copy plays exactly
+like the live one. Square codes are random strings derived from a private seed,
+so the Target can't be reached by guessing a URL. (The page still contains its
+own state machine, so someone reading the HTML source can skip ahead.)
+
+The seed is `MAZE_SEED` if set; otherwise the server generates one on first use
+and keeps it in `DATA_DIR/maze-seed`, so the maze stays identical across
+restarts and deploys and always matches its archived capture.
 
 ## Deploying
 
