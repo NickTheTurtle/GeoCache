@@ -14,7 +14,7 @@ async function openLeaderboard(page) {
 test.describe('Main map page', () => {
   test('loads with header, map, scan button and tabs visible', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveTitle(/CARE/);
+    await expect(page).toHaveTitle(/C\.A\.R\.E\./);
     await expectLegible(page.locator('.brand h1'));
 
     // Map tiles/container present (#map itself gets the leaflet-container class).
@@ -25,9 +25,9 @@ test.describe('Main map page', () => {
     await expectLegible(page.locator('.scan-fab'));
   });
 
-  test('shows the CARE rabbit logo and serves the favicons', async ({ page, request }) => {
+  test('shows the C.A.R.E. rabbit logo and serves the favicons', async ({ page, request }) => {
     await page.goto('/');
-    await expect(page.locator('.brand h1')).toHaveText('CARE');
+    await expect(page.locator('.brand h1')).toHaveText('C.A.R.E.');
     await expect(page.locator('.brand h1 svg.brand-ico')).toBeVisible();
 
     const icons = {

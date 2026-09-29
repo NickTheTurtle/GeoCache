@@ -51,7 +51,7 @@ if (httpsEnabled) {
   for (const p of httpsPorts) {
     https
       .createServer(creds, app)
-      .listen(p, () => console.log(`CARE running on https://localhost:${p}`))
+      .listen(p, () => console.log(`C.A.R.E. running on https://localhost:${p}`))
       .on('error', (err) => console.log(`HTTPS not started on port ${p}: ${err.message}`));
   }
 
@@ -69,7 +69,7 @@ if (httpsEnabled) {
   http
     .createServer(app)
     .listen(PORT, () => {
-      console.log(`CARE running on http://localhost:${PORT}`);
+      console.log(`C.A.R.E. running on http://localhost:${PORT}`);
       console.log('Tip: run `npm run gen-cert` to enable HTTPS (needed for the QR scanner on phones).');
     });
 }

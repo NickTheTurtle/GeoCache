@@ -508,7 +508,7 @@
 </script>
 
 <svelte:head>
-  <title>Admin · CARE</title>
+  <title>Admin · C.A.R.E.</title>
 </svelte:head>
 
 <div class="topbar">

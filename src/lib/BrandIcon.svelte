@@ -1,4 +1,4 @@
-<!-- CARE's rabbit logo (same design as static/favicon.svg, minus the tile). -->
+<!-- C.A.R.E.'s rabbit logo (same design as static/favicon.svg, minus the tile). -->
 <svg class="brand-ico" viewBox="0 0 48 48" aria-hidden="true">
   <g fill="#f7f1e3">
     <ellipse cx="17" cy="14" rx="5" ry="12" transform="rotate(-14 17 14)" />

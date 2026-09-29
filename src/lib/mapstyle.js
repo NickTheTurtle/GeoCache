@@ -1,4 +1,4 @@
-// Shared MapLibre GL vector style for CARE.
+// Shared MapLibre GL vector style for C.A.R.E.
 // Goal: warm parchment land, a SINGLE uniform color for every street,
 // clear water, no individual buildings, no house numbers - high contrast
 // and legible to match the nautical/treasure-map theme.

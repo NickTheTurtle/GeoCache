@@ -1,4 +1,4 @@
-# Deploying CARE to AWS EC2 (free tier)
+# Deploying C.A.R.E. to AWS EC2 (free tier)
 
 The live site is <https://care.dxu.info>. Server-side names (the `geocache`
 service and user, `/opt/geocache`, `/etc/geocache.env`, the database file) keep

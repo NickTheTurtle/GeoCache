@@ -239,7 +239,7 @@
   async function onScanSuccess(decodedText) {
     const secret = extractSecret(decodedText);
     if (!secret) {
-      scanMsg = 'That doesn\u2019t look like a CARE QR code.';
+      scanMsg = 'That doesn\u2019t look like a C.A.R.E. QR code.';
       scanMsgClass = 'err';
       return;
     }
@@ -502,12 +502,12 @@
 </script>
 
 <svelte:head>
-  <title>CARE</title>
+  <title>C.A.R.E.</title>
 </svelte:head>
 
 <div class="topbar">
   <div class="brand">
-    <h1><BrandIcon /> CARE</h1>
+    <h1><BrandIcon /> C.A.R.E.</h1>
   </div>
   <div class="spacer"></div>
   {#if currentCrew}

@@ -1,4 +1,4 @@
-# 🐰 CARE
+# 🐰 C.A.R.E.
 
 A GeoCaching game for you and your friends, bounded to San Francisco, live at
 <https://care.dxu.info>. Admins
