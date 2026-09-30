@@ -292,13 +292,6 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 }
 .locate-btn.active { background: var(--sea) !important; }
 
-/* Top-right "?" help control */
-.help-ctrl-btn {
-  display: flex !important; align-items: center; justify-content: center;
-  font-family: var(--font-display); font-weight: 700; font-size: 18px;
-  text-decoration: none;
-}
-
 /* Primary "Scan QR" button floating at the bottom of the map */
 .scan-fab {
   position: absolute;
@@ -721,19 +714,6 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   cursor: grab;
 }
 .vtx:active { cursor: grabbing; }
-
-/* Help modal: auto-height, no map, a numbered how-to-play list */
-.help-modal { height: auto; max-height: 88vh; width: min(500px, 100%); }
-.help-list {
-  margin: 14px 0 4px;
-  padding-left: 22px;
-  line-height: 1.6;
-  font-size: 15px;
-  color: var(--ink);
-}
-.help-list li { margin-bottom: 12px; }
-.help-list li::marker { color: var(--brass); font-weight: 700; }
-.help-list strong { color: var(--navy); }
 
 /* "You're inside a zone" cards are tappable to open the hint modal */
 .here-zone {

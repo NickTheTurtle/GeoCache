@@ -18,7 +18,6 @@
   let zoneHintText = $state('');
   let zoneImageUrl = $state(null);
 
-  let helpOpen = $state(false);
   let scanOpen = $state(false);
   let scanMsg = $state('Point your camera at a zone\u2019s QR code to claim it.');
   let scanMsgClass = $state('muted');
@@ -135,26 +134,6 @@
     }, 60);
   }
   function closeZoneModal() { zoneModalOpen = false; }
-
-  // ---------- Help control ----------
-  function addHelpControl() {
-    const HelpControl = L.Control.extend({
-      options: { position: 'topright' },
-      onAdd() {
-        const wrap = L.DomUtil.create('div', 'leaflet-bar');
-        const btn = L.DomUtil.create('a', 'help-ctrl-btn', wrap);
-        btn.href = '#';
-        btn.textContent = '?';
-        btn.title = 'How to play';
-        btn.setAttribute('role', 'button');
-        btn.setAttribute('aria-label', 'How to play');
-        L.DomEvent.disableClickPropagation(wrap);
-        L.DomEvent.on(btn, 'click', (e) => { L.DomEvent.preventDefault(e); helpOpen = true; });
-        return wrap;
-      },
-    });
-    map.addControl(new HelpControl());
-  }
 
   // ---------- QR scanner ----------
   // Get the device's current position once (for geofenced/on-site zones).
@@ -446,7 +425,7 @@
     }
   }
   function onKeydown(e) {
-    if (e.key === 'Escape') { closeZoneModal(); helpOpen = false; closeScan(); closeClaim(); menuOpen = false; }
+    if (e.key === 'Escape') { closeZoneModal(); closeScan(); closeClaim(); menuOpen = false; }
   }
   function onDocClick() { menuOpen = false; }
 
@@ -472,7 +451,6 @@
     map.setMinZoom(sfZoom);
 
     addLocateControl();
-    addHelpControl();
     mapReady = true;
 
     await loadZones();
@@ -567,23 +545,6 @@
     <span class="tab-lbl">Leaderboard</span>
   </button>
 </nav>
-
-<!-- How-to-play modal -->
-<div class="modal-overlay" role="presentation" style:display={helpOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) helpOpen = false; }}>
-  <div class="modal help-modal">
-    <button class="modal-close" aria-label="Close" onclick={() => (helpOpen = false)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-    <div class="modal-body">
-      <h2>How to play</h2>
-      <ol class="help-list">
-        <li><strong>Join your crew.</strong> Open the personal link your game host sent you. That signs you in as your crew.</li>
-        <li><strong>Explore the map.</strong> Marked zones around San Francisco each hide an object. Tap a zone to read its hint.</li>
-        <li><strong>Find the object.</strong> Use the hint (and your live location dot) to track it down in the real world.</li>
-        <li><strong>Scan its QR code.</strong> Scanning claims the zone for your crew and scores points. Be the first to solve it for a bonus.</li>
-        <li><strong>Climb the leaderboard.</strong> Multiple crews can claim the same zone. Race to grab them all!</li>
-      </ol>
-    </div>
-  </div>
-</div>
 
 <!-- Zone hint modal -->
 <div class="modal-overlay" role="presentation" style:display={zoneModalOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) closeZoneModal(); }}>

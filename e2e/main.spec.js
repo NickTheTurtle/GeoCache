@@ -102,15 +102,11 @@ test.describe('Main map page', () => {
     await expect(modal.getByRole('button', { name: 'Try again' })).toBeVisible();
   });
 
-  test('help modal is reachable and legible', async ({ page }) => {
+  test('there is no How to play button or popup', async ({ page }) => {
     await page.goto('/');
-    // The "?" help control on the map.
-    const help = page.locator('button[aria-label*="help" i], .help-fab, [title*="help" i]');
-    // Fallback: some builds put help behind a fixed button; open via keyboard flow if present.
-    if (await help.first().isVisible().catch(() => false)) {
-      await help.first().click();
-      await expect(page.locator('.help-modal')).toBeVisible();
-      await expectLegible(page.locator('.help-modal .help-list li').first());
-    }
+    await expect(page.locator('.leaflet-container')).toBeVisible();
+    await expect(page.getByRole('button', { name: /how to play/i })).toHaveCount(0);
+    await expect(page.locator('.help-modal, .help-ctrl-btn')).toHaveCount(0);
+    await expect(page.getByText('How to play')).toHaveCount(0);
   });
 });
