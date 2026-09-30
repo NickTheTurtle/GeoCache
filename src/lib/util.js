@@ -171,6 +171,18 @@ export async function getJson(url, init) {
   return res.json();
 }
 
+// Keep retrying `task` until it succeeds (waiting 1s, 2s, 4s... up to 15s between
+// tries), so a page opened while the server is restarting recovers by itself.
+export async function untilOk(task) {
+  for (let wait = 1000; ; wait = Math.min(wait * 2, 15000)) {
+    try {
+      return await task();
+    } catch {
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+}
+
 // Run `task` every `ms` milliseconds without ever overlapping: a slow run
 // delays the next instead of stacking up. A failed run is ignored (the page keeps
 // its last good data and tries again next time). Returns a function that stops it.

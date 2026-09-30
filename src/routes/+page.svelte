@@ -2,7 +2,7 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import { employee } from '$lib/employee.js';
   import { loadLeaflet, addBaseLayer, SF_CENTER } from '$lib/leaflet.js';
-  import { escapeHtml, zoneStyle, CHECK_ICON, extractSecret, renderHint, getJson, poll, formatPts, formatDelta } from '$lib/util.js';
+  import { escapeHtml, zoneStyle, CHECK_ICON, extractSecret, renderHint, getJson, poll, untilOk, formatPts, formatDelta } from '$lib/util.js';
   import Celebration from '$lib/Celebration.svelte';
   import BrandIcon from '$lib/BrandIcon.svelte';
 
@@ -455,7 +455,7 @@
     if (claimParam) openClaim(claimParam); // pop the claim modal (parallel with map init)
     L = await loadLeaflet();
 
-    const cfg = await getJson('/api/config');
+    const cfg = await untilOk(() => getJson('/api/config'));
     const b = cfg.sfBounds;
     const bounds = L.latLngBounds([b.south, b.west], [b.north, b.east]);
 
@@ -468,7 +468,7 @@
     addLocateControl();
     mapReady = true;
 
-    await loadZones();
+    await untilOk(loadZones);
     // Whole-SF stays the zoom-out limit; start at a fixed absolute zoom so every
     // device (desktop and mobile) opens at the same map scale, centered on the zones.
     const START_ZOOM = (typeof window !== 'undefined' && window.innerWidth < 760) ? 12 : 13;
@@ -480,8 +480,8 @@
     applyStart();
     // Re-apply after layout settles (mobile browsers finalize viewport height late).
     setTimeout(applyStart, 300);
-    await loadLeaderboard();
     stopPolling = poll(() => Promise.all([loadZones(), loadLeaderboard(), verifyEmployee()]), 15000);
+    await loadLeaderboard().catch(() => {}); // the poll retries if this fails
   });
 
   onDestroy(() => {

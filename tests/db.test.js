@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { parseZone } from '../src/lib/server/config.js';
 
 // db.js opens its SQLite file at import time using DATA_DIR, so point it at an
 // isolated temp directory BEFORE importing the module.
@@ -350,5 +351,171 @@ test('resetGame also clears point adjustments', () => {
   const e = db.createEmployee('ResetMe');
   db.adjustPoints(e.id, 3);
   db.resetGame();
+  assert.equal(db.db.prepare('SELECT COUNT(*) AS n FROM point_adjustments').get().n, 0);
+});
+
+test('leaderboard handles negative adjustments and name tie-breaks for employees with no claims', () => {
+  db.resetGame({ keepZones: false });
+  const zero = db.createEmployee('Zero');
+  const beta = db.createEmployee('Beta');
+  const alpha = db.createEmployee('Alpha');
+  db.adjustPoints(beta.id, -2);
+  db.adjustPoints(alpha.id, -2);
+
+  const board = db.leaderboard();
+  assert.deepEqual(board.map((r) => [r.name, r.points, r.solved]), [
+    ['Zero', 0, 0],
+    ['Alpha', -2, 0],
+    ['Beta', -2, 0],
+  ]);
+  assert.equal(board.find((r) => r.id === zero.id).last_claim_at, null);
+});
+
+test('adjustPoints can accumulate back to zero and keeps the adjustment row', () => {
+  db.resetGame({ keepZones: false });
+  const e = db.createEmployee('Zeroed');
+  db.adjustPoints(e.id, 5);
+  db.adjustPoints(e.id, -5);
+
+  assert.equal(db.listEmployees().find((r) => r.id === e.id).adjustment, 0);
+  const adjustment = db.db.prepare('SELECT employee_id, points FROM point_adjustments WHERE employee_id = ?').get(e.id);
+  assert.equal(adjustment.employee_id, e.id);
+  assert.equal(adjustment.points, 0);
+  assert.equal(db.leaderboard().find((r) => r.id === e.id).points, 0);
+});
+
+test('deleteEmployee returns false for a missing id', () => {
+  db.resetGame({ keepZones: false });
+  assert.equal(db.deleteEmployee(123456789), false);
+});
+
+test('unclaiming the first solver passes the first-solve bonus to the next claimer', () => {
+  db.resetGame({ keepZones: false });
+  const first = db.createEmployee('FirstOut');
+  const second = db.createEmployee('SecondIn');
+  const z = db.createZone({ name: 'Pass Bonus', hint: '', polygon: POLY });
+  db.claimZone(z.id, first.id);
+  db.claimZone(z.id, second.id);
+
+  assert.equal(db.leaderboard().find((r) => r.id === first.id).points, db.SOLVE_POINTS + db.FIRST_BONUS);
+  assert.equal(db.leaderboard().find((r) => r.id === second.id).points, db.SOLVE_POINTS);
+
+  assert.deepEqual(db.unclaimZone(z.id, first.id), { removed: true });
+  assert.deepEqual(db.getZoneClaimers(z.id).map((c) => c.id), [second.id]);
+  assert.equal(db.leaderboard().find((r) => r.id === first.id).points, 0);
+  assert.equal(db.leaderboard().find((r) => r.id === second.id).points, db.SOLVE_POINTS + db.FIRST_BONUS);
+});
+
+test('claimZone throws after the zone has been deleted', () => {
+  db.resetGame({ keepZones: false });
+  const e = db.createEmployee('Too Late');
+  const z = db.createZone({ name: 'Gone Zone', hint: '', polygon: POLY });
+  db.deleteZone(z.id);
+  assert.throws(() => db.claimZone(z.id, e.id));
+});
+
+test('createEmployee stores unicode, emoji, and HTML-looking names verbatim', () => {
+  db.resetGame({ keepZones: false });
+  const name = '兔 <b>C.A.R.E.</b> & "employee" 🐇';
+  const e = db.createEmployee(name);
+  assert.equal(db.getEmployeeById(e.id).name, name);
+  assert.equal(db.listEmployees().find((r) => r.id === e.id).name, name);
+});
+
+test('importZones rejects duplicate secrets inside one import file and rolls back', () => {
+  db.resetGame({ keepZones: false });
+  const survivor = db.createZone({ name: 'Survivor', hint: '', polygon: POLY });
+  assert.throws(
+    () =>
+      db.importZones(
+        [
+          { name: 'One', hint: '', polygon: POLY, secret: 'duplicateSecret1' },
+          { name: 'Two', hint: '', polygon: POLY, secret: 'duplicateSecret1' },
+        ],
+        { replace: true }
+      ),
+    (e) => e instanceof db.SecretTakenError && /Zone #2 \("Two"\).*"One"/.test(e.message)
+  );
+
+  assert.deepEqual(db.listZonesAdmin().map((z) => z.name), ['Survivor']);
+  assert.equal(db.getZoneBySecret(survivor.secret).id, survivor.id);
+  assert.equal(db.getZoneBySecret('duplicateSecret1'), undefined);
+});
+
+test('replace import reuses secrets but deletes existing claims through cascade', () => {
+  db.resetGame({ keepZones: false });
+  const e = db.createEmployee('Claimed Before Replace');
+  const z = db.createZone({ name: 'Replace Me', hint: '', polygon: POLY, secret: 'replaceSecret1' });
+  db.claimZone(z.id, e.id);
+  const dump = db.exportZones();
+
+  assert.equal(db.leaderboard().find((r) => r.id === e.id).points, db.SOLVE_POINTS + db.FIRST_BONUS);
+  assert.equal(db.importZones(dump, { replace: true }), 1);
+
+  const replacement = db.getZoneBySecret('replaceSecret1');
+  assert.ok(replacement);
+  assert.notEqual(replacement.id, z.id);
+  assert.equal(db.getZoneClaimers(replacement.id).length, 0);
+  assert.equal(db.leaderboard().find((r) => r.id === e.id).points, 0);
+});
+
+// Mirrors the import endpoint, which runs every zone through parseZone (decoding
+// imageData into image bytes) before db.importZones.
+test('export -> import (as the import endpoint does it) round-trips presence metadata and image bytes', () => {
+  db.resetGame({ keepZones: false });
+  const image = Buffer.from([0, 1, 2, 250, 251, 252, 253, 254, 255]);
+  const original = db.createZone({
+    name: 'Round Trip',
+    hint: 'bring the rabbit',
+    polygon: POLY,
+    secret: 'roundTripSecret1',
+    requirePresence: true,
+    presenceLat: 37.7705,
+    presenceLng: -122.4495,
+    image,
+    imageType: 'image/png',
+  });
+
+  const [dump] = db.exportZones();
+  assert.deepEqual(dump, {
+    name: 'Round Trip',
+    hint: 'bring the rabbit',
+    polygon: POLY,
+    secret: 'roundTripSecret1',
+    requirePresence: true,
+    presenceLat: 37.7705,
+    presenceLng: -122.4495,
+    imageData: `data:image/png;base64,${image.toString('base64')}`,
+  });
+
+  const fromFile = JSON.parse(JSON.stringify(dump));
+  assert.equal(db.importZones([{ ...parseZone(fromFile), secret: fromFile.secret }], { replace: true }), 1);
+  const replacement = db.getZoneBySecret(original.secret);
+  assert.ok(replacement);
+  assert.notEqual(replacement.id, original.id);
+  assert.equal(replacement.require_presence, 1);
+  assert.equal(replacement.presence_lat, 37.7705);
+  assert.equal(replacement.presence_lng, -122.4495);
+
+  const storedImage = db.getZoneImage(replacement.id);
+  assert.equal(storedImage.image_type, 'image/png');
+  assert.deepEqual(Buffer.from(storedImage.image), image);
+
+  const [again] = db.exportZones();
+  assert.equal(again.imageData, dump.imageData);
+  assert.equal(again.requirePresence, true);
+  assert.equal(again.presenceLat, 37.7705);
+  assert.equal(again.presenceLng, -122.4495);
+});
+
+test('resetGame({ keepZones: true }) clears point adjustments while preserving zones', () => {
+  db.resetGame({ keepZones: false });
+  const e = db.createEmployee('Keep Zones Reset');
+  const z = db.createZone({ name: 'Kept', hint: '', polygon: POLY });
+  db.adjustPoints(e.id, 9);
+
+  db.resetGame({ keepZones: true });
+  assert.equal(db.getZoneById(z.id).name, 'Kept');
+  assert.equal(db.listEmployees().length, 0);
   assert.equal(db.db.prepare('SELECT COUNT(*) AS n FROM point_adjustments').get().n, 0);
 });

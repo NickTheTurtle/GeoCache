@@ -24,7 +24,8 @@ export async function POST({ request, url }) {
   if (body == null) throw error(400, 'File is not valid JSON.');
 
   const zones = Array.isArray(body) ? body : body.zones;
-  const replace = Array.isArray(body) ? false : !!body.replace;
+  // Only a real `true` replaces: a hand-edited "replace": "false" must not wipe the map.
+  const replace = !Array.isArray(body) && body.replace === true;
   if (!Array.isArray(zones) || zones.length === 0) throw error(400, 'No zones found in the file');
   if (zones.length > 500) throw error(400, 'Too many zones (max 500 per import)');
 

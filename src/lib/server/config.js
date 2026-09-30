@@ -75,12 +75,39 @@ export function pointInSF(lat, lng) {
 // is written (create, edit, import).
 export const ZONE_LIMITS = { name: 60, hint: 5000, points: 1000 };
 
+// Every JSON endpoint reads its body through this: invalid JSON, null, arrays and
+// other non-objects become {}, so a malformed request gets a 400, never a crash.
+export async function readBody(request) {
+  const body = await request.json().catch(() => null);
+  return body !== null && typeof body === 'object' && !Array.isArray(body) ? body : {};
+}
+
+// A trimmed string field from untrusted JSON ('' unless it's a string).
+export const str = (v) => (typeof v === 'string' ? v.trim() : '');
+
+// A database id from a URL segment: plain digits only, so "0x10" or "1e3" can't
+// quietly address employee 16 or zone 1000. Returns null (-> 404) otherwise.
+export const parseId = (s) => (/^\d{1,15}$/.test(s) ? Number(s) : null);
+
+// A one-line display name (employee or zone): control characters and text-direction
+// overrides removed, whitespace collapsed. Returns '' when nothing visible is left
+// (e.g. only zero-width spaces), so "name is required" catches invisible names.
+// Zero-width joiners inside emoji are kept.
+export function cleanName(value) {
+  const s = typeof value === 'number' ? String(value) : str(value);
+  const name = s.replace(/[\p{Cc}\u202A-\u202E\u2066-\u2069]/gu, ' ').replace(/\s+/g, ' ').trim();
+  return /[^\s\p{Cf}]/u.test(name) ? name : '';
+}
+
 // Validate and normalize a zone payload from the admin UI or an import file.
 // Returns the fields db.createZone/updateZone expect, or throws a 400 with a
 // message fit to show the admin.
 export function parseZone(body) {
-  const name = String(body?.name ?? '').trim();
-  const hint = String(body?.hint ?? '').trim();
+  const name = cleanName(body?.name);
+  // Hints keep their line breaks and tabs; other control characters are dropped.
+  const hint = (typeof body?.hint === 'number' ? String(body.hint) : str(body?.hint))
+    .replace(/\r\n?/g, '\n')
+    .replace(/[^\P{Cc}\n\t]/gu, '');
   if (!name) throw error(400, 'Zone name is required.');
   if (name.length > ZONE_LIMITS.name) throw error(400, `Zone name must be ${ZONE_LIMITS.name} characters or fewer.`);
   if (hint.length > ZONE_LIMITS.hint) throw error(400, `Hint must be ${ZONE_LIMITS.hint} characters or fewer.`);

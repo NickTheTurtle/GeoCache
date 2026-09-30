@@ -1,11 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { escapeHtml, zoneStyle, extractSecret, renderHint, formatPts, formatDelta } from '../src/lib/util.js';
+import { performance } from 'node:perf_hooks';
+import { escapeHtml, zoneStyle, extractSecret, renderHint, formatPts, formatDelta, untilOk } from '../src/lib/util.js';
 
 test('escapeHtml escapes all HTML-sensitive characters', () => {
   assert.equal(escapeHtml(`<a href="x">&'`), '&lt;a href=&quot;x&quot;&gt;&amp;&#39;');
   assert.equal(escapeHtml('plain text'), 'plain text');
   assert.equal(escapeHtml(123), '123'); // coerces non-strings
+});
+
+test('escapeHtml coerces edge values before escaping', () => {
+  assert.equal(escapeHtml('&<>"\';'), '&amp;&lt;&gt;&quot;&#39;;');
+  assert.equal(escapeHtml(null), 'null');
+  assert.equal(escapeHtml(undefined), 'undefined');
+  assert.equal(escapeHtml(false), 'false');
+  assert.equal(escapeHtml({ toString: () => '<obj&>' }), '&lt;obj&amp;&gt;');
 });
 
 test("zoneStyle highlights only the current employee's claimed zones", () => {
@@ -29,6 +38,13 @@ test('extractSecret pulls the secret from a claim URL', () => {
   assert.equal(extractSecret('https://host.example/claim?c=xY_z-1234'), 'xY_z-1234');
 });
 
+test('extractSecret accepts ?c= from any URL shape and decodes it', () => {
+  assert.equal(extractSecret('  HTTPS://HOST.EXAMPLE/claim/?x=1&c=abc%2D_DEF&y=2#frag  '), 'abc-_DEF');
+  assert.equal(extractSecret('http://other.example/not-claim?c=Qr_Secret-123'), 'Qr_Secret-123');
+  assert.equal(extractSecret('https://host.example/claim/?c=trailSlash'), 'trailSlash');
+  assert.equal(extractSecret('https://host.example/claim?x=1&c=first&c=second'), 'first');
+});
+
 test('extractSecret accepts a bare secret string', () => {
   assert.equal(extractSecret('abcdef'), 'abcdef');
   assert.equal(extractSecret('  h05aMv6952Bu  '), 'h05aMv6952Bu'); // trims
@@ -36,9 +52,17 @@ test('extractSecret accepts a bare secret string', () => {
 
 test('extractSecret rejects invalid input', () => {
   assert.equal(extractSecret(''), null);
-  assert.equal(extractSecret('ab'), null); // too short for a bare secret
+  assert.equal(extractSecret('abcde'), null); // too short for a bare secret
   assert.equal(extractSecret('http://host/claim'), null); // URL without ?c=
   assert.equal(extractSecret(null), null);
+  assert.equal(extractSecret(undefined), null);
+  assert.equal(extractSecret('abc def'), null);
+  assert.equal(extractSecret('abc/def'), null);
+  assert.equal(extractSecret('abc+def'), null);
+  assert.equal(extractSecret('abc$def'), null);
+  assert.equal(extractSecret('WIFI:T:WPA;S:care;P:secret;;'), null);
+  assert.equal(extractSecret('scan this random paragraph instead'), null);
+  assert.equal(extractSecret('x'.repeat(10000) + '!'), null);
 });
 
 test('renderHint applies bold and italic markdown', () => {
@@ -56,12 +80,36 @@ test('renderHint applies bold and italic markdown', () => {
   assert.equal(renderHint('a * b'), 'a * b');
 });
 
+test('renderHint keeps malformed and empty emphasis markers literal', () => {
+  assert.equal(renderHint('**a _b** c_'), '<strong>a _b</strong> c_');
+  assert.equal(renderHint('****'), '****');
+  assert.equal(renderHint('____'), '____');
+  assert.equal(renderHint('*'), '*');
+  assert.equal(renderHint('_'), '_');
+  assert.equal(renderHint('before **after'), 'before **after');
+  assert.equal(renderHint('before _after'), 'before _after');
+});
+
 test('renderHint escapes HTML before applying markdown (XSS-safe)', () => {
   assert.equal(
     renderHint('<script>alert(1)</script> **x**'),
     '&lt;script&gt;alert(1)&lt;/script&gt; <strong>x</strong>'
   );
+  assert.equal(renderHint('<img src=x onerror=alert(1)>'), '&lt;img src=x onerror=alert(1)&gt;');
+  assert.equal(renderHint('"><svg onload=alert(1)>'), '&quot;&gt;&lt;svg onload=alert(1)&gt;');
   assert.equal(renderHint(null), '');
+});
+
+test('renderHint neutralizes link-label and href attribute-breakout attempts', () => {
+  assert.equal(
+    renderHint('[" onclick="alert(1)](https://example.com)'),
+    '<a href="https://example.com" target="_blank" rel="noopener noreferrer">&quot; onclick=&quot;alert(1)</a>'
+  );
+  assert.equal(
+    renderHint('[x](https://example.com/"onmouseover="x)'),
+    '<a href="https://example.com/&quot;onmouseover=&quot;x" target="_blank" rel="noopener noreferrer">x</a>'
+  );
+  assert.equal(renderHint('[x](https://example.com/a b)'), '[x](https://example.com/a b)');
 });
 
 test('renderHint escapes delimiters with a backslash', () => {
@@ -119,15 +167,50 @@ test('renderHint renders safe [label](url) links', () => {
 test('renderHint rejects unsafe link URLs (XSS-safe)', () => {
   // Only http(s)/mailto are allowed; everything else stays literal, no anchor.
   assert.equal(renderHint('[x](javascript:alert(1))'), '[x](javascript:alert(1))');
+  assert.equal(renderHint('[x](JaVaScRiPt:alert(1))'), '[x](JaVaScRiPt:alert(1))');
   assert.equal(renderHint('[x](data:text/html,<b>)'), '[x](data:text/html,&lt;b&gt;)');
+  assert.equal(renderHint('[x](vbscript:msgbox(1))'), '[x](vbscript:msgbox(1))');
   assert.equal(renderHint('[x](/local/path)'), '[x](/local/path)');
+});
+
+test('renderHint handles long and pathological input quickly', () => {
+  const cases = [
+    ['stars', '*'.repeat(5000)],
+    ['underscores', '_'.repeat(5000)],
+    ['open brackets', '['.repeat(5000)],
+    ['close-open pairs', ']('.repeat(2500)],
+    ['bold delimiters', '**'.repeat(2500)],
+    ['unfinished links', '[a]('.repeat(1000)],
+  ];
+
+  for (const [name, input] of cases) {
+    const start = performance.now();
+    const out = renderHint(input);
+    const elapsed = performance.now() - start;
+    assert.equal(typeof out, 'string');
+    assert.ok(elapsed < 50, `${name} took ${elapsed.toFixed(2)} ms`);
+  }
 });
 
 test('formatPts/formatDelta use "pts" and a true minus sign', () => {
   assert.equal(formatPts(12), '12 pts');
   assert.equal(formatPts(1), '1 pts');
   assert.equal(formatPts(0), '0 pts');
+  assert.equal(formatPts(-0), '0 pts');
+  assert.equal(formatPts(1_000_000), '1000000 pts');
   assert.equal(formatPts(-3), '\u22123 pts');
   assert.equal(formatDelta(5), '+5');
+  assert.equal(formatDelta(0), '+0');
+  assert.equal(formatDelta(-0), '+0');
+  assert.equal(formatDelta(1_000_000), '+1000000');
   assert.equal(formatDelta(-2), '\u22122');
+});
+
+test('untilOk retries a failing task until it succeeds', async () => {
+  let calls = 0;
+  const t0 = Date.now();
+  const v = await untilOk(async () => { if (++calls < 3) throw new Error('down'); return 'up'; });
+  assert.equal(v, 'up');
+  assert.equal(calls, 3);
+  assert.ok(Date.now() - t0 >= 2900, 'waits 1s then 2s between tries'); // backs off instead of hammering
 });

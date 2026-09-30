@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import * as db from '$lib/server/db.js';
-import { requireAdmin, isAdmin } from '$lib/server/config.js';
+import { requireAdmin, isAdmin, readBody, cleanName } from '$lib/server/config.js';
 
 // Tokens are an employee's private sign-in secret ("personal link"), so only admins
 // get them (with each employee's points and admin adjustment). Players see just id + name.
@@ -16,8 +16,8 @@ export function GET({ request, url }) {
 // Employee creation is admin-only; players join via their personal link.
 export async function POST({ request, url }) {
   requireAdmin(request, url);
-  const body = await request.json().catch(() => ({}));
-  const name = (body.name || '').trim();
+  const body = await readBody(request);
+  const name = cleanName(body.name);
   if (!name) throw error(400, 'Employee name is required.');
   if (name.length > 40) throw error(400, 'Name too long');
   const employee = db.createEmployee(name);

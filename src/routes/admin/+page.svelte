@@ -93,18 +93,27 @@
     startApp();
   }
 
+  // Signed token for QR <img>/<a> URLs, so the password stays out of the URL. It
+  // lasts 12h; renew it hourly so a console left open all day keeps working.
+  let tokenAt = 0;
+  async function refreshImgToken() {
+    const r = await fetch('/api/admin/token', { headers: authHeaders() }).catch(() => null);
+    const t = r?.ok ? (await r.json()).token : null;
+    if (t) { imgToken = t; tokenAt = Date.now(); }
+  }
+  const TOKEN_RENEW_MS = 60 * 60 * 1000;
+
   async function startApp() {
     loggedIn = true;
-    // Signed token for QR <img>/<a> URLs, so the password stays out of the URL.
-    imgToken = await fetch('/api/admin/token', { headers: authHeaders() })
-      .then((r) => r.json())
-      .then((d) => d.token)
-      .catch(() => '');
+    await refreshImgToken();
     if (!map) await initMap();
-    loadZones(); // also refreshes employees
+    refresh(); // also refreshes employees
     // Poll so claims/employees made elsewhere (e.g. an employee scanning a QR) show up
     // without a manual refresh.
-    stopSync ??= poll(loadZones, 15000);
+    stopSync ??= poll(() => Promise.all([
+      loadZones(),
+      Date.now() - tokenAt > TOKEN_RENEW_MS ? refreshImgToken() : null,
+    ]), 15000);
   }
 
   async function initMap() {
@@ -268,7 +277,7 @@
     const res = await fetch(`/api/admin/employees/${e.id}`, { method: 'DELETE', headers: authHeaders() });
     if (!res.ok) { toast('Could not delete employee'); return; }
     toast('Employee deleted');
-    loadZones(); // also refreshes employees (zone cards list who claimed)
+    refresh(); // also refreshes employees (zone cards list who claimed)
   }
 
   // Stepper taps: show the new total immediately, then save. Taps are independent
@@ -294,6 +303,8 @@
   }
 
   // ---------- Zones ----------
+  // Refresh zones + employees after a change; a failure is retried by the 15s poll.
+  const refresh = () => loadZones().catch(() => {});
   async function loadZones() {
     const epoch = tapEpoch;
     const [zList, cList] = await Promise.all([
@@ -341,7 +352,7 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { toast(data.message || 'Claim failed'); return; }
     toast(data.status === 'already-yours' ? 'Employee already claimed it.' : 'Zone claimed');
-    loadZones();
+    refresh();
   }
 
   async function unclaimZoneFor(zoneId, employeeId) {
@@ -352,7 +363,7 @@
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); toast(d.message || 'Failed'); return; }
     toast('Claim removed');
-    loadZones();
+    refresh();
   }
 
   function onImagePick(e) {
@@ -403,7 +414,7 @@
     toast(editingId ? 'Zone updated' : 'Zone created');
     resetForm();
     clearDraft();
-    loadZones();
+    refresh();
   }
 
   function editZone(id) {
@@ -434,7 +445,7 @@
     });
     if (!ok) return;
     const res = await fetch(`/api/admin/zones/${id}`, { method: 'DELETE', headers: authHeaders() });
-    if (res.ok) { toast('Zone deleted'); loadZones(); }
+    if (res.ok) { toast('Zone deleted'); refresh(); }
   }
 
   function cancelEdit() { resetForm(); clearDraft(); }
@@ -496,7 +507,7 @@
       if (!res.ok) { importErr = data.message || 'Import failed.'; return; }
       toast(`Imported ${data.imported} zone${data.imported === 1 ? '' : 's'}`);
       if (map) { map.setView(SF_CENTER, 12); }
-      loadZones();
+      refresh();
     } finally {
       importing = false;
       if (importInput) importInput.value = '';
@@ -529,7 +540,7 @@
       toast(keepZones ? 'Game reset, zones kept' : 'Game reset, zones deleted');
       resetForm();
       clearDraft();
-      loadZones(); // also refreshes employees
+      refresh(); // also refreshes employees
     } else {
       toast('Reset failed');
     }

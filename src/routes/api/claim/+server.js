@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import * as db from '$lib/server/db.js';
-import { haversineMeters } from '$lib/server/config.js';
+import { haversineMeters, readBody, str } from '$lib/server/config.js';
 import { CLAIM_RADIUS_M } from '$lib/util.js';
 
 // The device's reported accuracy widens CLAIM_RADIUS_M when larger, capped so a
@@ -9,10 +9,10 @@ const MAX_ACCURACY_M = 100;
 
 // Claim a zone by its QR secret for the caller's employee.
 export async function POST({ request }) {
-  const body = await request.json().catch(() => ({}));
-  const zone = db.getZoneBySecret((body.secret || '').trim());
+  const body = await readBody(request);
+  const zone = db.getZoneBySecret(str(body.secret));
   if (!zone) throw error(404, 'Unknown QR code');
-  const employee = db.getEmployeeByToken((body.employeeToken || '').trim());
+  const employee = db.getEmployeeByToken(str(body.employeeToken));
   if (!employee) throw error(400, 'Unknown employee. Open your personal link first.');
 
   // Geofenced zones: the employee must be near the admin-placed claim spot.
