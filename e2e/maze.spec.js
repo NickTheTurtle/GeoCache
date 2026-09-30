@@ -33,6 +33,7 @@ test.describe('Maze (JavaScript disabled)', () => {
     const say = page.locator('main > .say'); // the intro, not the win screen's
     await expect(say.locator('.who')).toHaveText('Flabber Geese:');
     await expect(say).toContainText('“Wow, you actually made it on time. I had very little faith in you.');
+    await expect(say).toContainText('Well? What are you waiting for? I disabled the lasers.');
     await expect(say).toContainText('I disabled the lasers. Grab the target, then scram.”');
   });
 
