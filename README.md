@@ -112,9 +112,9 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 | `DATA_DIR`        | `./data`   | Directory for the SQLite database file. |
 | `PUBLIC_BASE_URL` | (none)     | Public URL encoded in QR codes.         |
 
-## The Heist (`/heist`, `/heist72`)
+## The Heist (`/heist72`)
 
-Both `/heist` and `/heist72` serve **a note from "Flabber Gast"**
+`/heist72` serves **a note from "Flabber Gast"**
 (`src/lib/server/heistNote.js`) telling players to use "the machine from the
 Museum", the Wayback Machine. It's a self-contained page (inline CSS, no scripts
 or assets) with a 60-second cache.

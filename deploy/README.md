@@ -91,10 +91,10 @@ The script sets `PUBLIC_BASE_URL` to your HTTPS address, so QR codes generated
 from the **admin** page (`/admin`) already encode the correct public link.
 (Re)generate them there after deploying.
 
-## 6. The Heist (`/heist`, `/heist72`)
+## 6. The Heist (`/heist72`)
 
-Both `https://<your-domain>/heist` and `https://<your-domain>/heist72` show
-Flabber Gast's note. The maze that used to be at `/heist72` lives only in the
+`https://<your-domain>/heist72` shows Flabber Gast's note; `/heist` is gone (404).
+The maze that used to be at `/heist72` lives only in the
 Wayback Machine now; its code and prize image are no longer part of the app, and
 deploying deletes them from `/opt/geocache`. Nothing to configure.
 `/var/lib/geocache/maze-seed`, left over from when the maze was live, is no
