@@ -35,7 +35,7 @@ export function renderHeistNote({ title = 'The Heist' } = {}) {
 <article class="note">
 <p class="to">Dear idiots,</p>
 ${PARAGRAPHS.map((p) => `<p>${p}</p>`).join('\n')}
-<p class="sig"><strong>Flabber Geese</strong><span>September 29th</span></p>
+<p class="sig"><strong>Flabber Geese</strong><span>September 30th</span></p>
 </article>
 </main>
 </body>
