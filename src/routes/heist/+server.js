@@ -1,7 +1,7 @@
 import { renderHeistNote } from '$lib/server/heistNote.js';
 
-// The live page is now a note sending players to the Wayback Machine capture of
-// this URL, which still holds the maze. Served as a raw, self-contained HTML
+// The live page is a note sending players to the Wayback Machine capture of
+// /heist72, which still holds the maze. Served as a raw, self-contained HTML
 // document (no SvelteKit layout or client JS).
 const page = renderHeistNote();
 

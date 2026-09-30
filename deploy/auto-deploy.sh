@@ -27,7 +27,7 @@ WORKFLOW="${WORKFLOW:-ci.yml}"
 STATE_DIR="${STATE_DIR:-/var/lib/geocache-deploy}"
 UPDATE_SCRIPT="${UPDATE_SCRIPT:-$APP_DIR/deploy/update.sh}"
 GITHUB_API="${GITHUB_API:-https://api.github.com}"
-HEALTH_URLS="${HEALTH_URLS:-http://127.0.0.1:3000/ http://127.0.0.1:3000/heist}"
+HEALTH_URLS="${HEALTH_URLS:-http://127.0.0.1:3000/ http://127.0.0.1:3000/heist72}"
 HEALTH_TRIES="${HEALTH_TRIES:-30}"
 export GIT_TERMINAL_PROMPT=0   # never hang waiting for credentials
 
