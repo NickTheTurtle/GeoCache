@@ -45,9 +45,22 @@ test.describe('Admin console', () => {
     await expect(page.locator('h2', { hasText: 'Employees' })).toBeVisible();
 
     const name = `Test Employee ${Date.now()}`;
-    await page.locator('#grpName').fill(name);
-    await page.getByRole('button', { name: 'Create employee' }).click();
-    await expect(page.locator('body')).toContainText(name);
+    const field = page.locator('#grpName');
+    const create = page.getByRole('button', { name: 'Create', exact: true });
+    // The button sits on the same line as the name field, even on a phone.
+    const [fb, bb] = [await field.boundingBox(), await create.boundingBox()];
+    expect(Math.abs(fb.y + fb.height / 2 - (bb.y + bb.height / 2))).toBeLessThan(4);
+    expect(bb.x + bb.width).toBeLessThanOrEqual((page.viewportSize()?.width ?? 0) + 0.5);
+
+    await field.fill(name);
+    await create.click();
+    await expect(page.locator('.zone-item', { hasText: name })).toBeVisible();
+    await expect(field).toHaveValue('');
+
+    const viaEnter = `Enter Employee ${Date.now()}`;
+    await field.fill(viaEnter);
+    await field.press('Enter'); // Enter submits too
+    await expect(page.locator('.zone-item', { hasText: viaEnter })).toBeVisible();
   });
 
   test('imports zones from a JSON file and lists them', async ({ page }) => {

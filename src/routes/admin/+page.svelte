@@ -654,8 +654,10 @@
       <div class="card">
         <h2>Employees</h2>
         <label for="grpName">Employee name</label>
-        <input id="grpName" placeholder="Jane Doe" maxlength="40" bind:value={grpName} />
-        <div class="btn-row"><button type="button" onclick={createEmployeeAdmin}>Create employee</button></div>
+        <form class="inline-field" onsubmit={(ev) => { ev.preventDefault(); createEmployeeAdmin(); }}>
+          <input id="grpName" placeholder="Jane Doe" maxlength="40" bind:value={grpName} />
+          <button type="submit">Create</button>
+        </form>
         <div class="err">{grpErr}</div>
         <div class="employee-list">
           {#if employees.length === 0}

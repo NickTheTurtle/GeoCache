@@ -606,6 +606,10 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 
 /* Admin: employee list + zone-action helpers (replacing former inline styles) */
 .btn-row { margin-top: 10px; }
+/* A text field with its submit button on the same line */
+.inline-field { display: flex; gap: 8px; align-items: stretch; }
+.inline-field input { flex: 1; min-width: 0; }
+.inline-field button { flex: none; }
 .employee-list { margin-top: 14px; }
 .employee-link { font-size: 12px; word-break: break-all; margin-top: 4px; }
 .qr-actions { display: flex; flex-direction: column; gap: 6px; }
