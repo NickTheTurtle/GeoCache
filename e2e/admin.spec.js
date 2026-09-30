@@ -101,7 +101,7 @@ test.describe('Admin console', () => {
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Export zones' }).click(),
+      page.getByRole('link', { name: 'Export zones' }).click(),
     ]);
     expect(download.suggestedFilename()).toBe('care-zones.json');
   });

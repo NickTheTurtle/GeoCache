@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { loadLeaflet, addBaseLayer, SF_CENTER } from '$lib/leaflet.js';
   import BrandIcon from '$lib/BrandIcon.svelte';
+  import { escapeHtml, getJson, poll, CLAIM_RADIUS_M } from '$lib/util.js';
 
   const PW_KEY = 'geocache_admin_pw';
 
@@ -62,11 +63,10 @@
   let draftPolygon = null;
   let zoneLayers = new Map();
   let mapEl = $state();
-  let syncInterval = null;
+  let stopSync = null;
   // Claim-spot marker + tolerance ring for on-site zones.
   let presenceMarker = null;
   let presenceCircle = null;
-  const PRESENCE_RADIUS_M = 40;
 
   function authHeaders(extra = {}) {
     return { 'x-admin-password': adminPw, ...extra };
@@ -104,7 +104,7 @@
     loadZones(); // also refreshes employees
     // Poll so claims/employees made elsewhere (e.g. an employee scanning a QR) show up
     // without a manual refresh.
-    if (!syncInterval) syncInterval = setInterval(() => loadZones(), 15000);
+    stopSync ??= poll(loadZones, 15000);
   }
 
   async function initMap() {
@@ -139,7 +139,7 @@
       presenceCircle.setLatLng([lat, lng]);
     } else {
       presenceCircle = L.circle([lat, lng], {
-        radius: PRESENCE_RADIUS_M,
+        radius: CLAIM_RADIUS_M,
         color: '#e0453f', weight: 1, fillColor: '#e0453f', fillOpacity: 0.12,
       }).addTo(map);
     }
@@ -226,7 +226,7 @@
 
   // ---------- Employees ----------
   async function loadEmployees() {
-    employees = await fetch('/api/employees', { headers: authHeaders() }).then((r) => r.json());
+    employees = await getJson('/api/employees', { headers: authHeaders() });
   }
 
   async function createEmployeeAdmin() {
@@ -252,8 +252,8 @@
   // ---------- Zones ----------
   async function loadZones() {
     const [zList, cList] = await Promise.all([
-      fetch('/api/admin/zones', { headers: authHeaders() }).then((r) => r.json()),
-      fetch('/api/employees', { headers: authHeaders() }).then((r) => r.json()),
+      getJson('/api/admin/zones', { headers: authHeaders() }),
+      getJson('/api/employees', { headers: authHeaders() }),
     ]);
     employees = cList;
     zones = zList;
@@ -266,12 +266,12 @@
       let layer = zoneLayers.get(z.id);
       if (layer) {
         layer.setLatLngs(z.polygon);
-        layer.setTooltipContent(z.name);
+        layer.setTooltipContent(escapeHtml(z.name)); // Leaflet renders tooltip strings as HTML
       } else {
         layer = L.polygon(z.polygon, {
           color: '#123a5c', weight: 2, fillColor: '#123a5c', fillOpacity: 0.12,
         }).addTo(map);
-        layer.bindTooltip(z.name);
+        layer.bindTooltip(escapeHtml(z.name));
         zoneLayers.set(z.id, layer);
       }
     }
@@ -314,6 +314,7 @@
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) { formErr = 'Please choose an image file.'; return; }
+    if (file.type === 'image/svg+xml') { formErr = 'SVG images are not allowed.'; return; }
     if (file.size > 4 * 1024 * 1024) { formErr = 'Image is too large (max 4MB).'; return; }
     const reader = new FileReader();
     reader.onload = () => {
@@ -502,7 +503,7 @@
     window.addEventListener('keydown', onKeydown);
   });
   onDestroy(() => {
-    if (syncInterval) clearInterval(syncInterval);
+    stopSync?.();
     if (typeof window !== 'undefined') window.removeEventListener('keydown', onKeydown);
   });
 </script>
@@ -516,7 +517,7 @@
     <h1><BrandIcon /> Admin</h1>
   </div>
   <div class="spacer"></div>
-  <a href="/"><button class="badge">Map</button></a>
+  <a class="badge" href="/">Map</a>
 </div>
 
 {#if !loggedIn}
@@ -550,7 +551,7 @@
         <label for="zName">Zone name</label>
         <input id="zName" placeholder="Golden Gate Park West" maxlength="60" bind:value={zName} />
         <label for="zHint">Hint</label>
-        <textarea id="zHint" rows="3" placeholder="Look near the bench facing the windmill…" bind:value={zHint}></textarea>
+        <textarea id="zHint" rows="3" maxlength="5000" placeholder="Look near the bench facing the windmill…" bind:value={zHint}></textarea>
         <label for="zImg">Hint image (optional)</label>
         <input id="zImg" type="file" accept="image/*" bind:this={zImgInput} onchange={onImagePick} />
         {#if imagePreview}
@@ -585,9 +586,7 @@
                 <div class="row">
                   <img class="qr-thumb" src={`/api/admin/zones/${z.id}/qr?t=${encodeURIComponent(imgToken)}`} alt={`QR code for ${z.name}`} />
                   <div class="qr-actions">
-                    <a href={`/api/admin/zones/${z.id}/qr?download=1&t=${encodeURIComponent(imgToken)}`} download>
-                      <button class="secondary" type="button">Download QR</button>
-                    </a>
+                    <a class="button secondary" href={`/api/admin/zones/${z.id}/qr?download=1&t=${encodeURIComponent(imgToken)}`} download>Download QR</a>
                     <button class="secondary" type="button" onclick={() => editZone(z.id)}>Edit</button>
                     <button class="danger" type="button" onclick={() => deleteZone(z.id, z.name)}>Delete</button>
                   </div>
@@ -662,9 +661,7 @@
       <div class="card">
         <h2>Export zones</h2>
         <div class="form-actions">
-          <a href={exportUrl()} download>
-            <button class="secondary" type="button">Export zones</button>
-          </a>
+          <a class="button secondary" href={exportUrl()} download>Export zones</a>
         </div>
       </div>
 
@@ -680,10 +677,10 @@
 
 <!-- Reset confirmation modal -->
 <div class="modal-overlay" role="presentation" style:display={resetOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) resetOpen = false; }}>
-  <div class="modal admin-modal">
+  <div class="modal admin-modal" role="dialog" aria-modal="true" aria-labelledby="resetTitle">
     <button class="modal-close" aria-label="Close" onclick={() => (resetOpen = false)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div class="modal-body">
-      <h2>Reset game</h2>
+      <h2 id="resetTitle">Reset game</h2>
       <p>This permanently clears all employees, claims and leaderboard points. What should happen to the zones and their QR codes?</p>
       <div class="modal-actions">
         <button class="secondary" type="button" onclick={() => doReset(true)}>Keep zones &amp; QR codes</button>
@@ -696,10 +693,10 @@
 
 <!-- Generic confirm modal -->
 <div class="modal-overlay" role="presentation" style:display={confirmOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) closeConfirm(false); }}>
-  <div class="modal admin-modal">
+  <div class="modal admin-modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
     <button class="modal-close" aria-label="Close" onclick={() => closeConfirm(false)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div class="modal-body">
-      <h2>{confirmTitle}</h2>
+      <h2 id="confirmTitle">{confirmTitle}</h2>
       <p>{confirmMsg}</p>
       <div class="modal-actions">
         <button class="danger" type="button" onclick={() => closeConfirm(true)}>{confirmOkLabel}</button>

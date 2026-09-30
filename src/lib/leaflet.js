@@ -5,7 +5,7 @@ export const SF_CENTER = [37.7749, -122.4194];
 
 // Basemap attribution. Only the OpenStreetMap credit is legally required (ODbL);
 // the OpenFreeMap credit is optional.
-export const MAP_ATTRIBUTION =
+const MAP_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
 // Attach the MapLibre GL vector basemap to a Leaflet map. Pass attribution=null

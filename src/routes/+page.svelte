@@ -2,7 +2,7 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import { employee } from '$lib/employee.js';
   import { loadLeaflet, addBaseLayer, SF_CENTER } from '$lib/leaflet.js';
-  import { escapeHtml, zoneStyle, CHECK_ICON, extractSecret, renderHint } from '$lib/util.js';
+  import { escapeHtml, zoneStyle, CHECK_ICON, extractSecret, renderHint, getJson, poll } from '$lib/util.js';
   import Celebration from '$lib/Celebration.svelte';
   import BrandIcon from '$lib/BrandIcon.svelte';
 
@@ -70,7 +70,7 @@
 
   // ---------- Zones ----------
   async function loadZones() {
-    const zones = await fetch('/api/zones').then((r) => r.json());
+    const zones = await getJson('/api/zones');
     for (const [id, entry] of zoneLayers) {
       if (!zones.find((z) => z.id === id)) {
         map.removeLayer(entry.layer);
@@ -209,6 +209,7 @@
         () => {}
       );
     } catch {
+      qrScanner = null; // never started, so there's nothing to stop later
       scanMsg = 'Could not access the camera. Grant permission, or scan the QR with your phone\u2019s camera app.';
       scanMsgClass = 'err';
       scanErr = true;
@@ -234,60 +235,57 @@
     try {
       const { res, data } = await claimZoneBySecret(secret);
       if (res.ok && data.status === 'claimed') {
-	  celebrate(`Claimed ${data.zone.name} for ${currentEmployee.name}! +${data.points} point${data.points === 1 ? '' : 's'}${data.first ? '. First to solve!' : ''}.`);
-	  loadZones();
-	  loadLeaderboard();
-	  } else if (data.status === 'already-yours') {
-	  celebrate(`You already claimed ${data.zone.name}.`, false);
-	  } else if (data.status === 'too-far') {
-	  scanMsg = `This zone can only be claimed on-site. You\u2019re not in the right location.`;
-	  scanMsgClass = 'err';
-	  scanErr = true;
-	  } else if (data.status === 'location-denied') {
-	  scanMsg = 'This zone can only be claimed on-site. Turn on location access and try again.';
-	  scanMsgClass = 'err';
-	  scanErr = true;
-	  } else {
-	  scanMsg = data.message || 'Could not claim this zone.';
-	  scanMsgClass = 'err';
-	  scanErr = true;
-	  }
-	  } catch {
-	  scanMsg = 'Network error. Try again.';
-	  scanMsgClass = 'err';
-	  scanErr = true;
-	  }
-	  }
+        celebrate(`Claimed ${data.zone.name} for ${currentEmployee.name}! +${data.points} point${data.points === 1 ? '' : 's'}${data.first ? '. First to solve!' : ''}.`);
+        loadZones();
+        loadLeaderboard();
+      } else if (data.status === 'already-yours') {
+        celebrate(`You already claimed ${data.zone.name}.`, false);
+      } else if (data.status === 'too-far') {
+        scanMsg = 'This zone can only be claimed on-site. You\u2019re not in the right location.';
+        scanMsgClass = 'err';
+        scanErr = true;
+      } else if (data.status === 'location-denied') {
+        scanMsg = 'This zone can only be claimed on-site. Turn on location access and try again.';
+        scanMsgClass = 'err';
+        scanErr = true;
+      } else {
+        scanMsg = data.message || 'Could not claim this zone.';
+        scanMsgClass = 'err';
+        scanErr = true;
+      }
+    } catch {
+      scanMsg = 'Network error. Try again.';
+      scanMsgClass = 'err';
+      scanErr = true;
+    }
+  }
 
-	  function stopScanner() {
-	  if (!qrScanner) return Promise.resolve();
-	  const s = qrScanner;
-	  qrScanner = null;
-	  return s.stop().then(() => s.clear()).catch(() => {});
-	  }
-	  function closeScan() { scanOpen = false; scanSuccess = false; scanErr = false; stopScanner(); }
+  function stopScanner() {
+    if (!qrScanner) return Promise.resolve();
+    const s = qrScanner;
+    qrScanner = null;
+    // stop() throws synchronously if the camera never started; keep that inside the promise.
+    return Promise.resolve().then(() => s.stop()).then(() => s.clear()).catch(() => {});
+  }
+  function closeScan() { scanOpen = false; scanSuccess = false; scanErr = false; stopScanner(); }
 
-	  // Flip the modal into its success view. Confetti fires only for a fresh claim.
-	  function celebrate(text, confettiOn = true) {
-	  successText = text;
-	  successConfetti = confettiOn;
-	  scanSuccess = true;
-	  }
+  // Flip the modal into its success view. Confetti fires only for a fresh claim.
+  function celebrate(text, confettiOn = true) {
+    successText = text;
+    successConfetti = confettiOn;
+    scanSuccess = true;
+  }
 
-	  async function scanAnother() {
-	  await openScan();
-	  }
-
-	  // ---------- Location ----------
-	  function addLocateControl() {
-	  const LocateControl = L.Control.extend({
-	  options: { position: 'topleft' },
-	  onAdd() {
-	  const wrap = L.DomUtil.create('div', 'leaflet-bar');
-	  const btn = L.DomUtil.create('a', 'locate-btn', wrap);
-	  btn.href = '#';
-	  btn.innerHTML =
-	  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
+  // ---------- Location ----------
+  function addLocateControl() {
+    const LocateControl = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd() {
+        const wrap = L.DomUtil.create('div', 'leaflet-bar');
+        const btn = L.DomUtil.create('a', 'locate-btn', wrap);
+        btn.href = '#';
+        btn.innerHTML =
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>';
         btn.title = 'Show my location';
         btn.setAttribute('role', 'button');
         btn.setAttribute('aria-label', 'Show my location');
@@ -305,6 +303,7 @@
       locating = false;
       const btn = document.querySelector('.locate-btn');
       if (btn) btn.classList.remove('active');
+      map.stopLocate();
       alert('Could not get your location: ' + e.message);
     });
   }
@@ -341,7 +340,7 @@
 
   // ---------- Leaderboard ----------
   async function loadLeaderboard() {
-    leaders = await fetch('/api/leaderboard').then((r) => r.json());
+    leaders = await getJson('/api/leaderboard');
   }
 
   // ---------- Tabs ----------
@@ -429,7 +428,7 @@
   }
   function onDocClick() { menuOpen = false; }
 
-  let interval;
+  let stopPolling;
   onMount(async () => {
     // Listen before any awaits: the claim modal can open right away, and Escape
     // should close it without waiting for the map and zones to load.
@@ -440,7 +439,7 @@
     if (claimParam) openClaim(claimParam); // pop the claim modal (parallel with map init)
     L = await loadLeaflet();
 
-    const cfg = await fetch('/api/config').then((r) => r.json());
+    const cfg = await getJson('/api/config');
     const b = cfg.sfBounds;
     const bounds = L.latLngBounds([b.south, b.west], [b.north, b.east]);
 
@@ -466,11 +465,11 @@
     // Re-apply after layout settles (mobile browsers finalize viewport height late).
     setTimeout(applyStart, 300);
     await loadLeaderboard();
-    interval = setInterval(() => { loadZones(); loadLeaderboard(); }, 15000);
+    stopPolling = poll(() => Promise.all([loadZones(), loadLeaderboard()]), 15000);
   });
 
   onDestroy(() => {
-    if (interval) clearInterval(interval);
+    stopPolling?.();
     if (map) map.stopLocate(); // stop the geolocation watch started by toggleLocate
     if (typeof window !== 'undefined') {
       window.removeEventListener('keydown', onKeydown);
@@ -548,11 +547,11 @@
 
 <!-- Zone hint modal -->
 <div class="modal-overlay" role="presentation" style:display={zoneModalOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) closeZoneModal(); }}>
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="zoneModalTitle">
     <button class="modal-close" aria-label="Close" onclick={closeZoneModal}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div class="modal-map" bind:this={modalMapEl}></div>
     <div class="modal-body">
-      <h2>{zoneTitle}</h2>
+      <h2 id="zoneModalTitle">{zoneTitle}</h2>
       <div class="popup-status">{@html zoneStatusHtml}</div>
       {#if zoneHintText}
         <div class="popup-hint">{@html renderHint(zoneHintText)}</div>
@@ -566,15 +565,15 @@
 
 <!-- QR scanner modal -->
 <div class="modal-overlay" role="presentation" style:display={scanOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) closeScan(); }}>
-  <div class="modal admin-modal">
+  <div class="modal admin-modal" role="dialog" aria-modal="true" aria-labelledby="scanTitle">
     <button class="modal-close" aria-label="Close" onclick={closeScan}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div class="modal-body">
-      <h2>Scan a QR code</h2>
+      <h2 id="scanTitle">Scan a QR code</h2>
       {#if scanSuccess}
         <Celebration text={successText} confettiOn={successConfetti}>
           <div class="success-actions">
             <button onclick={() => { closeScan(); setTab('board'); }}>See leaderboard</button>
-            <button class="ghost" onclick={scanAnother}>Scan another</button>
+            <button class="ghost" onclick={openScan}>Scan another</button>
           </div>
         </Celebration>
       {:else}
@@ -587,10 +586,10 @@
         {:else}
           <div id="scanReader" class="scan-reader"></div>
         {/if}
-        <p class="{scanMsgClass} scan-msg">{@html scanMsg}</p>
+        <p class="{scanMsgClass} scan-msg">{scanMsg}</p>
         {#if scanErr}
           <div class="success-actions scan-actions">
-            <button onclick={scanAnother}>Try again</button>
+            <button onclick={openScan}>Try again</button>
           </div>
         {/if}
       {/if}
@@ -600,10 +599,10 @@
 
 <!-- Claim modal (opened from a scanned QR link: /?c=<secret>) -->
 <div class="modal-overlay" role="presentation" style:display={claimOpen ? 'flex' : 'none'} onclick={(e) => { if (e.currentTarget === e.target) closeClaim(); }}>
-  <div class="modal admin-modal">
+  <div class="modal admin-modal" role="dialog" aria-modal="true" aria-labelledby="claimTitle">
     <button class="modal-close" aria-label="Close" onclick={closeClaim}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div class="modal-body">
-      <h2>{claimView === 'loading' || claimView === 'error' ? 'Claim a zone' : claimZoneName}</h2>
+      <h2 id="claimTitle">{claimView === 'loading' || claimView === 'error' ? 'Claim a zone' : claimZoneName}</h2>
       {#if claimView === 'loading'}
         <p class="muted">Loading…</p>
       {:else if claimView === 'error'}

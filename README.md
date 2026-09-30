@@ -9,7 +9,7 @@ QR codes, scan them, and score points.
 
 - **One-click registration:** each employee gets a personal link (`/?g=<token>`)
   that identifies them so scans claim zones for them.
-- **SF map** (Leaflet + OpenStreetMap): every zone is a boundary; click to zoom
+- **SF map** (Leaflet + MapLibre, OpenFreeMap tiles of OpenStreetMap data): every zone is a boundary; click to zoom
   in and read its hint.
 - **QR claiming:** each zone has a unique QR code; scanning claims it for points.
 - **Leaderboard:** live ranking by points.
@@ -22,7 +22,7 @@ QR codes, scan them, and score points.
 npm install
 npm run build
 $env:ADMIN_PASSWORD="s3cret"   # optional; defaults to "changeme"
-npm start                       # runs server.js, opens on http://localhost:3000
+npm start                       # runs server.js on http://localhost:3000
 ```
 
 Admin is at `/admin`. For hot-reload dev use `npm run dev` (port 5173), but the
@@ -68,6 +68,12 @@ automatically after CI passes on `main` (see
    link.
 3. On finding a QR code, an employee scans it and taps **Claim** for points.
 
+A zone can be marked **on-site only**: the admin drags a claim spot on the map,
+and a claim then needs the phone's GPS within 40 m of it (more if the phone
+reports lower accuracy, capped at 100 m). The location comes from the
+employee's browser, so this deters casual remote claims rather than proving
+presence.
+
 ## Bulk zones: import / export
 
 The admin console can import/export zones as JSON, which is handy for generating a whole
@@ -99,7 +105,8 @@ Format (see [`zones.example.json`](./zones.example.json)):
 ```
 
 `hint` supports markdown (`**bold**`, `_italic_`, `[label](https://…)` links);
-escape a delimiter with a backslash to keep it literal (`\*`, `\_`). A bare
+escape a delimiter with a backslash to keep it literal (`\*`, `\_`). Limits:
+names up to 60 characters, hints up to 5000, polygons up to 1000 points. A bare
 top-level array is also accepted. To import over SSH:
 
 ```bash
@@ -160,12 +167,11 @@ src/
   app.css                 Shared styles
   lib/
     server/db.js          SQLite schema and queries (node:sqlite)
-    server/config.js      Admin auth, SF bounds, QR URL helpers
+    server/config.js      Admin auth, zone validation, SF bounds, QR URL helpers
     leaflet.js            Client-only Leaflet + MapLibre loader
-    util.js               Shared client helpers (zone styling, QR parsing)
+    util.js               Shared helpers (zone styling, hint markdown, QR parsing, polling)
   routes/
     +page.svelte          Main map, registration, leaderboard, scanner, claim
-    claim/+page.js        Redirects old /claim?c= links to the main-page modal
     admin/+page.svelte    Zone drawing, import/export, QR generation
     api/                  SvelteKit server endpoints
 render.yaml               Render deployment blueprint

@@ -46,7 +46,9 @@ body {
 a { color: var(--brass); text-underline-offset: 2px; }
 
 /* ---------- Buttons ---------- */
-button {
+/* Links that act like buttons (downloads, navigation) share the button look,
+   so no <button> ever sits inside an <a>. */
+button, a.button {
   cursor: pointer;
   border: 1px solid var(--navy);
   border-radius: 8px;
@@ -60,21 +62,18 @@ button {
   color: #f6f1e3;
   transition: background .12s ease, transform .05s ease;
 }
-button:hover { background: #17456e; }
-button:active { transform: translateY(1px); }
-button.secondary {
+a.button { display: inline-block; line-height: normal; text-decoration: none; }
+button:hover, a.button:hover { background: #17456e; }
+button:active, a.button:active { transform: translateY(1px); }
+button.secondary, a.button.secondary {
   background: transparent;
   color: var(--ink);
   border: 1px solid var(--edge-strong);
 }
-button.secondary:hover { background: #0f2a440d; }
+button.secondary:hover, a.button.secondary:hover { background: #0f2a440d; }
 button.danger { background: var(--signal-red); border-color: var(--signal-red); color: #fdf1f1; }
 button.danger:hover { background: #983131; }
 button:disabled { opacity: .5; cursor: not-allowed; }
-
-/* Brass accent button */
-button.brass { background: var(--brass); border-color: var(--brass); color: #2a1e07; }
-button.brass:hover { background: var(--brass-bright); }
 
 /* Buttons sitting on the dark top bar need light text to stay visible */
 .topbar button.secondary {
@@ -139,13 +138,6 @@ label {
 }
 .topbar h1 .brand-ico { flex: none; }
 .topbar h1 .amp { color: var(--brass-bright); }
-.tagline {
-  font-size: 10px;
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  color: #9fb3c4;
-  margin-top: 5px;
-}
 .topbar .spacer { flex: 1; }
 .badge {
   background: #ffffff14;
@@ -158,6 +150,8 @@ label {
   text-transform: uppercase;
   color: #cdd9e2;
 }
+a.badge { display: inline-block; text-decoration: none; }
+a.badge:hover { background: #ffffff26; }
 .badge strong {
   color: var(--brass-bright);
   font-weight: 700;
@@ -168,27 +162,6 @@ label {
   white-space: nowrap;
   vertical-align: bottom;
 }
-
-/* Round "?" help button in the top bar */
-.icon-btn {
-  width: 34px;
-  height: 34px;
-  margin-right: 12px;
-  border-radius: 999px;
-  background: #ffffff14;
-  border: 1px solid var(--brass);
-  color: var(--brass-bright);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background .15s, transform .15s;
-}
-.icon-btn:hover { background: var(--brass); color: var(--navy-deep); transform: translateY(-1px); }
 
 /* Employee badge dropdown in the top bar */
 .employee-menu { position: relative; margin-left: 10px; flex: none; max-width: 55%; }
@@ -433,27 +406,6 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 }
 .leaflet-tooltip::before { display: none; }
 
-/* Legacy small popup fallback */
-.leaflet-popup-content-wrapper {
-  background: var(--surface);
-  color: var(--ink);
-  border: 1px solid var(--edge-strong);
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(15,42,68,.3);
-}
-.leaflet-popup-tip { background: var(--surface); border: 1px solid var(--edge-strong); }
-.leaflet-popup-content { margin: 12px 14px; font-size: 14px; line-height: 1.45; }
-.zone-popup h3 { margin: 0 0 6px; font-size: 18px; font-family: var(--font-serif); font-weight: 600; }
-.zone-popup .popup-status { font-size: 12px; margin-bottom: 8px; }
-.zone-popup .popup-hint {
-  white-space: pre-wrap;
-  max-height: 220px;
-  overflow-y: auto;
-  padding: 10px;
-  background: var(--surface-2);
-  border: 1px dashed var(--edge-strong);
-  border-radius: 8px;
-}
 .popup-hint a { color: var(--sea); font-weight: 600; text-decoration: underline; }
 
 /* Pulsing "you are here" dot */
@@ -517,15 +469,6 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 
 /* ---------- Misc text ---------- */
 .muted { color: var(--muted); font-size: 13px; }
-.hint-box {
-  margin-top: 8px;
-  padding: 10px;
-  background: var(--surface-2);
-  border-radius: 8px;
-  border: 1px dashed var(--edge-strong);
-  white-space: pre-wrap;
-  line-height: 1.5;
-}
 .status { color: var(--sea); font-weight: 700; }
 .err { color: var(--signal-red); font-size: 13px; margin-top: 6px; }
 .claimed-flag { color: var(--signal-red); font-size: 12px; font-weight: 700; }
@@ -535,15 +478,6 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   margin: 6vh auto;
   padding: 0 16px;
 }
-
-/* Compass-rose divider */
-.ornament { text-align: center; margin: 6px 0 14px; color: var(--brass); }
-.ornament::before, .ornament::after {
-  content: "•───";
-  letter-spacing: .1em;
-  opacity: .7;
-}
-.ornament::after { content: "───•"; }
 
 /* ---------- Admin ---------- */
 .admin-grid { display: flex; height: calc(100% - 59px); }
@@ -575,7 +509,7 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   border-radius: 10px; border: 1px solid var(--edge); margin-bottom: 8px;
 }
 .zone-item .row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
-.zone-item button { padding: 7px 11px; font-size: 11px; }
+.zone-item button, .zone-item a.button { padding: 7px 11px; font-size: 11px; }
 .toast {
   position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
   background: var(--navy-deep); border: 1px solid var(--brass); color: #eaf0f5;
@@ -714,24 +648,9 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   cursor: grab;
 }
 .vtx:active { cursor: grabbing; }
-
-/* "You're inside a zone" cards are tappable to open the hint modal */
-.here-zone {
-  margin-bottom: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--edge-strong);
-  border-radius: 10px;
-  background: var(--surface-2);
-  cursor: pointer;
-  transition: border-color .15s, transform .1s;
-}
-.here-zone:last-child { margin-bottom: 0; }
-.here-zone:hover { border-color: var(--brass); transform: translateY(-1px); }
-.here-tap { margin-top: 4px; font-size: 12px; color: var(--sea); font-weight: 600; }
 @media (max-width: 760px) {
   .topbar { min-height: 55px; padding: 8px 12px; gap: 8px; }
   .topbar h1 { font-size: clamp(15px, 4.6vw, 21px); letter-spacing: .03em; gap: 6px; }
-  .tagline { font-size: 9px; letter-spacing: .16em; }
   .badge { font-size: 12px; padding: 7px 13px; }
 
   .layout { flex-direction: column; height: calc(100% - 55px); }
@@ -803,5 +722,5 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 
 @media (pointer: coarse) {
   button { padding: 12px 16px; }
-  .zone-item button { padding: 9px 12px; font-size: 12px; }
+  .zone-item button, .zone-item a.button { padding: 9px 12px; font-size: 12px; }
 }

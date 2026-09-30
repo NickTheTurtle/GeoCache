@@ -120,24 +120,21 @@ id -u "$APP_USER" >/dev/null 2>&1 || useradd --system --home "$APP_DIR" --shell 
 mkdir -p "$APP_DIR" "$DATA_DIR"
 
 # ---- fetch the code --------------------------------------------------------
+# The token (if any) is only used in the fetch URL, so it is never written to
+# .git/config, even if a step fails.
 CLONE_URL="$REPO_URL"
 if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-  # Inject the token only for the network operation; the stored remote stays clean.
   CLONE_URL="https://x-access-token:${GITHUB_TOKEN}@${REPO_URL#https://}"
 fi
 
-if [[ -d "$APP_DIR/.git" ]]; then
-  log "Updating existing checkout in ${APP_DIR}"
-  git -C "$APP_DIR" remote set-url origin "$CLONE_URL"
-  git -C "$APP_DIR" fetch --depth 1 origin "$GIT_REF"
-  git -C "$APP_DIR" checkout -f "$GIT_REF"
-  git -C "$APP_DIR" reset --hard "origin/${GIT_REF}"
-  git -C "$APP_DIR" remote set-url origin "$REPO_URL"
-else
-  log "Cloning ${REPO_URL} (ref ${GIT_REF}) into ${APP_DIR}"
-  git clone --depth 1 --branch "$GIT_REF" "$CLONE_URL" "$APP_DIR"
-  git -C "$APP_DIR" remote set-url origin "$REPO_URL"   # scrub token from .git/config
+if [[ ! -d "$APP_DIR/.git" ]]; then
+  log "Creating checkout of ${REPO_URL} in ${APP_DIR}"
+  git init -q "$APP_DIR"
+  git -C "$APP_DIR" remote add origin "$REPO_URL"
 fi
+log "Fetching ${GIT_REF}"
+git -C "$APP_DIR" fetch --depth 1 "$CLONE_URL" "$GIT_REF"
+git -C "$APP_DIR" reset --hard FETCH_HEAD
 
 # ---- build -----------------------------------------------------------------
 log "Installing dependencies and building"
@@ -257,7 +254,7 @@ cat <<EOF
 
   App URL:      ${PUBLIC_URL}
   Admin:        ${PUBLIC_URL}/admin
-  Heist:        ${PUBLIC_URL}/heist
+  Heist:        ${PUBLIC_URL}/heist72
   Data (SQLite):${DATA_DIR}/geocache.db
 
   Service:      sudo systemctl status geocache
