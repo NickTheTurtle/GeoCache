@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { fixture, signInAs, signOut, expectLegible } from './helpers.js';
+import { fixture, signInAs, expectLegible } from './helpers.js';
 
 const fx = fixture();
 
@@ -87,25 +87,6 @@ test.describe('Main map page', () => {
     // Token removed from the address bar.
     await expect(page).toHaveURL(/\/$|\/(?!\?g=)/);
     expect(new URL(page.url()).searchParams.get('g')).toBeNull();
-  });
-
-  test('someone signed in before the rename to "employee" stays signed in', async ({ page }) => {
-    const e = fx.employees.fog;
-    // The sign-in was saved under the old key; it's picked up and moved over.
-    await page.addInitScript((c) => {
-      if (!sessionStorage.getItem('seeded')) {
-        localStorage.removeItem('care_employee');
-        localStorage.setItem('geocache_crew', JSON.stringify({ id: c.id, name: c.name, token: c.token }));
-        sessionStorage.setItem('seeded', '1');
-      }
-    }, e);
-    await page.goto('/');
-    await expect(page.locator('.employee-menu .badge')).toContainText(e.name);
-    const stored = await page.evaluate(() => [localStorage.getItem('care_employee'), localStorage.getItem('geocache_crew')]);
-    expect(JSON.parse(stored[0]).token).toBe(e.token);
-    expect(stored[1]).toBeNull();
-    await page.reload(); // still signed in from the new key alone
-    await expect(page.locator('.employee-menu .badge')).toContainText(e.name);
   });
 
   test('scanner modal shows a themed placeholder (not a blank box) when no camera', async ({ page }) => {

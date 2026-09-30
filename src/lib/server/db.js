@@ -16,97 +16,42 @@ export const FIRST_BONUS = 1;
 db.exec(`
   PRAGMA journal_mode = WAL;
   PRAGMA foreign_keys = ON;
-`);
 
-// The claims table definition, shared by the initial CREATE and the migration below.
-const CLAIMS_COLUMNS = `
+  CREATE TABLE IF NOT EXISTS employees (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    token      TEXT NOT NULL UNIQUE,    -- the secret in the employee's personal link
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- A hint image is stored as a BLOB, so there is no file/disk to manage;
+  -- image_ver changes on every upload so cached <img> URLs bust automatically.
+  -- When require_presence is 1, the zone can only be claimed near the
+  -- admin-placed spot (presence_lat / presence_lng), checked server-side against
+  -- the device's reported GPS position. The spot is never sent to players.
+  CREATE TABLE IF NOT EXISTS zones (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT NOT NULL,
+    hint             TEXT NOT NULL DEFAULT '',
+    polygon          TEXT NOT NULL,           -- JSON: [[lat,lng], ...]
+    secret           TEXT NOT NULL UNIQUE,    -- encoded in the QR code
+    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    image            BLOB,
+    image_type       TEXT,
+    image_ver        TEXT,
+    require_presence INTEGER NOT NULL DEFAULT 0,
+    presence_lat     REAL,
+    presence_lng     REAL
+  );
+
+  CREATE TABLE IF NOT EXISTS claims (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     zone_id     INTEGER NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
     employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
     created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')),
     UNIQUE (zone_id, employee_id)   -- an employee can claim a given zone only once
-  `;
-
-// Migration: rename the legacy player table to `employees`, and its column in
-// `claims` to `employee_id`. It was first `groups` / `group_id`, then
-// `crews` / `crew_id`; SQLite rewrites the dependent FK + UNIQUE constraints.
-// `claims` is then rebuilt from CLAIMS_COLUMNS (same rows and ids) so its stored
-// definition carries no legacy names, even in comments. Before any change, a
-// one-off copy of the database is saved next to it.
-{
-  const tables = () => db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((t) => t.name);
-  const claimCols = () => db.prepare('PRAGMA table_info(claims)').all().map((c) => c.name);
-  const legacyTable = ['crews', 'groups'].find((t) => tables().includes(t));
-  const legacyCol = ['crew_id', 'group_id'].find((c) => claimCols().includes(c));
-  if ((legacyTable && !tables().includes('employees')) || (legacyCol && !claimCols().includes('employee_id'))) {
-    const backup = path.join(DATA_DIR, 'geocache.before-employees.db');
-    if (!fs.existsSync(backup)) db.exec(`VACUUM INTO '${backup.replace(/'/g, "''")}'`);
-    db.exec('BEGIN');
-    try {
-      if (legacyTable && !tables().includes('employees')) db.exec(`ALTER TABLE ${legacyTable} RENAME TO employees`);
-      if (legacyCol && !claimCols().includes('employee_id')) {
-        db.exec(`ALTER TABLE claims RENAME COLUMN ${legacyCol} TO employee_id`);
-        const seq = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'claims'").get()?.seq ?? 0;
-        db.exec(`
-          CREATE TABLE claims_rebuilt (${CLAIMS_COLUMNS});
-          INSERT INTO claims_rebuilt (id, zone_id, employee_id, created_at)
-            SELECT id, zone_id, employee_id, created_at FROM claims;
-          DROP TABLE claims;
-          ALTER TABLE claims_rebuilt RENAME TO claims;
-        `);
-        // Keep AUTOINCREMENT from ever reusing an id that was handed out before.
-        db.prepare("UPDATE sqlite_sequence SET seq = ? WHERE name = 'claims' AND seq < ?").run(seq, seq);
-      }
-      db.exec('COMMIT');
-    } catch (e) {
-      db.exec('ROLLBACK');
-      throw e;
-    }
-  }
-}
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS employees (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT NOT NULL,
-    token      TEXT NOT NULL UNIQUE,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
-
-  CREATE TABLE IF NOT EXISTS zones (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT NOT NULL,
-    hint       TEXT NOT NULL DEFAULT '',
-    polygon    TEXT NOT NULL,           -- JSON: [[lat,lng], ...]
-    secret     TEXT NOT NULL UNIQUE,    -- encoded in the QR code
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS claims (${CLAIMS_COLUMNS});
 `);
-
-// Migration: hint images (added after initial release). Stored as a BLOB so
-// there is no file/disk to manage; image_ver changes on every upload so cached
-// <img> URLs bust automatically.
-{
-  const cols = db.prepare('PRAGMA table_info(zones)').all().map((c) => c.name);
-  if (!cols.includes('image')) db.exec('ALTER TABLE zones ADD COLUMN image BLOB');
-  if (!cols.includes('image_type')) db.exec('ALTER TABLE zones ADD COLUMN image_type TEXT');
-  if (!cols.includes('image_ver')) db.exec('ALTER TABLE zones ADD COLUMN image_ver TEXT');
-}
-
-// Migration: per-zone geofence. When require_presence is 1, an employee can only
-// claim the zone while physically near the admin-placed claim spot
-// (presence_lat / presence_lng), checked server-side against the device's
-// reported GPS position. The spot is kept secret from players.
-{
-  const cols = db.prepare('PRAGMA table_info(zones)').all().map((c) => c.name);
-  if (!cols.includes('require_presence')) {
-    db.exec('ALTER TABLE zones ADD COLUMN require_presence INTEGER NOT NULL DEFAULT 0');
-  }
-  if (!cols.includes('presence_lat')) db.exec('ALTER TABLE zones ADD COLUMN presence_lat REAL');
-  if (!cols.includes('presence_lng')) db.exec('ALTER TABLE zones ADD COLUMN presence_lng REAL');
-}
 
 function newToken(bytes = 9) {
   return crypto.randomBytes(bytes).toString('base64url');

@@ -1,11 +1,10 @@
 import { json, error } from '@sveltejs/kit';
 import * as db from '$lib/server/db.js';
 import { haversineMeters } from '$lib/server/config.js';
+import { CLAIM_RADIUS_M } from '$lib/util.js';
 
-// How close (metres) an employee must be to the admin-placed claim spot. The
-// device's own reported accuracy widens this when larger, capped so a wildly
-// inaccurate fix can't defeat the geofence.
-const CLAIM_RADIUS_M = 40;
+// The device's reported accuracy widens CLAIM_RADIUS_M when larger, capped so a
+// wildly inaccurate fix can't defeat the geofence.
 const MAX_ACCURACY_M = 100;
 
 // Claim a zone by its QR secret for the caller's employee.

@@ -3,9 +3,12 @@ import assert from 'node:assert/strict';
 import {
   validPolygon,
   validSecret,
+  parseZone,
+  ZONE_LIMITS,
   pointInSF,
   decodeImage,
   isAdmin,
+  checkPassword,
   makeAdminToken,
   haversineMeters,
 } from '../src/lib/server/config.js';
@@ -71,11 +74,19 @@ test('decodeImage rejects SVG (stored-XSS vector)', () => {
   );
 });
 
-const fakeReq = (pw) => ({ headers: { get: (k) => (k === 'x-admin-password' ? pw ?? null : null) } });
+const fakeReq = (pw, method = 'GET') => ({ method, headers: { get: (k) => (k === 'x-admin-password' ? pw ?? null : null) } });
 const fakeUrl = (qs = '') => new URL(`https://x/${qs}`);
+
+test('checkPassword accepts only the exact admin password', () => {
+  assert.equal(checkPassword('changeme'), true);
+  for (const bad of ['changem', 'changeme ', 'CHANGEME', '', null, undefined, 'x'.repeat(1000)]) {
+    assert.equal(checkPassword(bad), false, JSON.stringify(bad));
+  }
+});
 
 test('isAdmin accepts the password via header, rejects wrong ones and ?pw=', () => {
   assert.equal(isAdmin(fakeReq('changeme'), fakeUrl()), true);
+  assert.equal(isAdmin(fakeReq('changeme', 'DELETE'), fakeUrl()), true);
   assert.equal(isAdmin(fakeReq('nope'), fakeUrl()), false);
   // ?pw= is no longer accepted (passwords must not travel in URLs).
   assert.equal(isAdmin(fakeReq(), fakeUrl('?pw=changeme')), false);
@@ -86,6 +97,11 @@ test('makeAdminToken mints a token isAdmin accepts via ?t=; tampering is rejecte
   assert.equal(isAdmin(fakeReq(), fakeUrl(`?t=${encodeURIComponent(tok)}`)), true);
   assert.equal(isAdmin(fakeReq(), fakeUrl('?t=123.deadbeef')), false);
   assert.equal(isAdmin(fakeReq(), fakeUrl('?t=garbage')), false);
+});
+
+test('?t= tokens only work for read-only GET requests, never for changes', () => {
+  const t = fakeUrl(`?t=${encodeURIComponent(makeAdminToken())}`);
+  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) assert.equal(isAdmin(fakeReq(undefined, method), t), false, method);
 });
 
 test('makeAdminToken tokens expire', () => {
@@ -119,4 +135,24 @@ test('validSecret accepts generated and hand-made URL-safe secrets, and nothing 
   for (const bad of ['short7c', 'A'.repeat(65), 'has space1', 'slash/aaaa', 'plus+aaaa', 'q?c=aaaaa', 'ünïcödeAA', '', null, undefined, 12345678, {}]) {
     assert.equal(validSecret(bad), false, JSON.stringify(bad));
   }
+});
+
+test('parseZone normalizes a valid zone and enforces the server-side limits', () => {
+  const ok = parseZone({ name: '  Windmill ', hint: ' look up ', polygon: SF_TRIANGLE });
+  assert.deepEqual(ok, { name: 'Windmill', hint: 'look up', polygon: SF_TRIANGLE, requirePresence: false, presenceLat: null, presenceLng: null, image: undefined, imageType: undefined });
+  const onSite = parseZone({ name: 'Spot', polygon: SF_TRIANGLE, requirePresence: true, presenceLat: 37.7705, presenceLng: -122.4495 });
+  assert.deepEqual([onSite.requirePresence, onSite.presenceLat, onSite.presenceLng], [true, 37.7705, -122.4495]);
+
+  const rejects = (body, re) => assert.throws(() => parseZone(body), (e) => e.status === 400 && re.test(e.body.message));
+  rejects(null, /Zone name is required/);
+  rejects({ name: '   ', polygon: SF_TRIANGLE }, /Zone name is required/);
+  rejects({ name: 'x'.repeat(ZONE_LIMITS.name + 1), polygon: SF_TRIANGLE }, /60 characters or fewer/);
+  rejects({ name: 'Ok', hint: 'x'.repeat(ZONE_LIMITS.hint + 1), polygon: SF_TRIANGLE }, /Hint must be 5000 characters or fewer/);
+  rejects({ name: 'Ok', polygon: [[37.77, -122.45]] }, /3\+ points inside San Francisco/);
+  const many = Array.from({ length: ZONE_LIMITS.points + 1 }, (_, i) => [37.77 + i * 1e-6, -122.45]);
+  rejects({ name: 'Ok', polygon: many }, /1000 points or fewer/);
+  rejects({ name: 'Ok', polygon: SF_TRIANGLE, requirePresence: true, presenceLat: 40, presenceLng: -122.45 }, /claim spot inside San Francisco/);
+  rejects({ name: 'Ok', polygon: SF_TRIANGLE, imageData: 'data:image/svg+xml;base64,PHN2Zy8+' }, /SVG images are not allowed/);
+  // Limits are inclusive.
+  assert.equal(parseZone({ name: 'x'.repeat(ZONE_LIMITS.name), polygon: many.slice(0, ZONE_LIMITS.points) }).name.length, ZONE_LIMITS.name);
 });

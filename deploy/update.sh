@@ -23,22 +23,17 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 REPO_URL="$(git -C "$APP_DIR" remote get-url origin)"
+# The token (if any) is only used in the fetch URL, so it is never written to
+# .git/config, even if a step fails.
 CLONE_URL="$REPO_URL"
 if [[ -n "${GITHUB_TOKEN:-}" ]]; then
   CLONE_URL="https://x-access-token:${GITHUB_TOKEN}@${REPO_URL#https://}"
 fi
 
-git -C "$APP_DIR" remote set-url origin "$CLONE_URL"
-if [[ -n "$DEPLOY_SHA" ]]; then
-  echo "==> Fetching commit ${DEPLOY_SHA}"
-  git -C "$APP_DIR" fetch --depth 1 origin "$DEPLOY_SHA"
-  git -C "$APP_DIR" reset --hard "$DEPLOY_SHA"
-else
-  echo "==> Fetching latest ${GIT_REF}"
-  git -C "$APP_DIR" fetch --depth 1 origin "$GIT_REF"
-  git -C "$APP_DIR" reset --hard "origin/${GIT_REF}"
-fi
-git -C "$APP_DIR" remote set-url origin "$REPO_URL"   # scrub token
+REF="${DEPLOY_SHA:-$GIT_REF}"
+echo "==> Fetching ${REF}"
+git -C "$APP_DIR" fetch --depth 1 "$CLONE_URL" "$REF"
+git -C "$APP_DIR" reset --hard FETCH_HEAD
 
 echo "==> Rebuilding"
 cd "$APP_DIR"

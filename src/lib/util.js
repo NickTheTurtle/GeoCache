@@ -162,3 +162,34 @@ export function extractSecret(text) {
   if (/^[A-Za-z0-9_-]{6,}$/.test(raw)) return raw;
   return null;
 }
+
+// GET a JSON API endpoint. Rejects on network errors and on non-2xx responses,
+// so callers never mistake an error body for data.
+export async function getJson(url, init) {
+  const res = await fetch(url, init);
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  return res.json();
+}
+
+// Run `task` every `ms` milliseconds without ever overlapping: a slow run
+// delays the next instead of stacking up. A failed run is ignored (the page keeps
+// its last good data and tries again next time). Returns a function that stops it.
+export function poll(task, ms) {
+  let running = false;
+  const id = setInterval(async () => {
+    if (running) return;
+    running = true;
+    try {
+      await task();
+    } catch {
+      /* transient (e.g. offline): retry on the next tick */
+    } finally {
+      running = false;
+    }
+  }, ms);
+  return () => clearInterval(id);
+}
+
+// How close (metres) an employee must be to an on-site zone's claim spot.
+// Shared so the admin map draws the same ring the server enforces.
+export const CLAIM_RADIUS_M = 40;

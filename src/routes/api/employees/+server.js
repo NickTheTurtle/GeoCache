@@ -7,7 +7,7 @@ import { requireAdmin, isAdmin } from '$lib/server/config.js';
 export function GET({ request, url }) {
   const admin = isAdmin(request, url);
   return json(
-    db.listEmployees().map((c) => (admin ? { id: c.id, name: c.name, token: c.token } : { id: c.id, name: c.name }))
+    db.listEmployees().map((e) => (admin ? { id: e.id, name: e.name, token: e.token } : { id: e.id, name: e.name }))
   );
 }
 

@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { error } from '@sveltejs/kit';
 
-export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'changeme';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'changeme';
 
 // San Francisco bounding box (approx). [south, west, north, east]
 export const SF_BOUNDS = { south: 37.7, west: -122.52, north: 37.83, east: -122.35 };
@@ -41,15 +41,23 @@ function validAdminToken(tok) {
   );
 }
 
-// True when the request carries valid admin credentials: the x-admin-password
-// header, or a signed ?t= token (for image/QR/export URLs that can't set headers).
-export function isAdmin(request, url) {
-  if (request.headers.get('x-admin-password') === ADMIN_PASSWORD) return true;
-  return validAdminToken(url.searchParams.get('t'));
+// Constant-time check of a supplied admin password. Both sides are hashed first
+// so the comparison always runs over equal-length buffers.
+export function checkPassword(supplied) {
+  const digest = (s) => crypto.createHash('sha256').update(String(s ?? '')).digest();
+  return crypto.timingSafeEqual(digest(supplied), digest(ADMIN_PASSWORD));
 }
 
-// Reject non-admin requests. Credentials come via the x-admin-password header or
-// a signed ?t= token (used by <img>/<a> tags that can't set headers).
+// True when the request carries valid admin credentials: the x-admin-password
+// header, or a signed ?t= token. Tokens exist only for <img>/<a> download URLs
+// (QR codes, zone export) that can't set headers, so they are accepted for
+// read-only GET requests and never for changes.
+export function isAdmin(request, url) {
+  if (checkPassword(request.headers.get('x-admin-password'))) return true;
+  return request.method === 'GET' && validAdminToken(url.searchParams.get('t'));
+}
+
+// Reject non-admin requests (see isAdmin for what counts as admin).
 export function requireAdmin(request, url) {
   if (!isAdmin(request, url)) throw error(401, 'Bad admin password');
 }
@@ -63,16 +71,37 @@ export function pointInSF(lat, lng) {
   );
 }
 
-// Validate the admin-placed claim spot for an on-site zone. Returns
-// { presenceLat, presenceLng } (nulls when presence isn't required) or throws a 400.
-export function resolvePresence(body) {
-  if (!body?.requirePresence) return { presenceLat: null, presenceLng: null };
-  const presenceLat = Number(body.presenceLat);
-  const presenceLng = Number(body.presenceLng);
-  if (!Number.isFinite(presenceLat) || !Number.isFinite(presenceLng) || !pointInSF(presenceLat, presenceLng)) {
-    throw error(400, 'Set a claim spot inside San Francisco for on-site zones.');
+// Limits on admin-supplied zone fields, enforced server-side for every way a zone
+// is written (create, edit, import).
+export const ZONE_LIMITS = { name: 60, hint: 5000, points: 1000 };
+
+// Validate and normalize a zone payload from the admin UI or an import file.
+// Returns the fields db.createZone/updateZone expect, or throws a 400 with a
+// message fit to show the admin.
+export function parseZone(body) {
+  const name = String(body?.name ?? '').trim();
+  const hint = String(body?.hint ?? '').trim();
+  if (!name) throw error(400, 'Zone name is required.');
+  if (name.length > ZONE_LIMITS.name) throw error(400, `Zone name must be ${ZONE_LIMITS.name} characters or fewer.`);
+  if (hint.length > ZONE_LIMITS.hint) throw error(400, `Hint must be ${ZONE_LIMITS.hint} characters or fewer.`);
+  if (!validPolygon(body?.polygon)) throw error(400, 'Polygon must have 3+ points inside San Francisco.');
+  if (body.polygon.length > ZONE_LIMITS.points) {
+    throw error(400, `Polygon must have ${ZONE_LIMITS.points} points or fewer.`);
   }
-  return { presenceLat, presenceLng };
+
+  const requirePresence = !!body.requirePresence;
+  let presenceLat = null;
+  let presenceLng = null;
+  if (requirePresence) {
+    presenceLat = Number(body.presenceLat);
+    presenceLng = Number(body.presenceLng);
+    if (!Number.isFinite(presenceLat) || !Number.isFinite(presenceLng) || !pointInSF(presenceLat, presenceLng)) {
+      throw error(400, 'Set a claim spot inside San Francisco for on-site zones.');
+    }
+  }
+
+  const img = decodeImage(body.imageData);
+  return { name, hint, polygon: body.polygon, requirePresence, presenceLat, presenceLng, image: img?.image, imageType: img?.imageType };
 }
 
 // A zone QR secret supplied in an import file. Generated secrets are 16

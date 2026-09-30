@@ -11,6 +11,7 @@ export function GET({ params }) {
     headers: {
       'Content-Type': row.image_type || 'application/octet-stream',
       'Cache-Control': 'public, max-age=31536000, immutable',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
 }

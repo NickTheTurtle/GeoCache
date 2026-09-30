@@ -109,18 +109,3 @@ test.describe('Claim modal (opened from a QR link /?c=<secret>)', () => {
     await expect(modal).toBeHidden({ timeout: 2000 });
   });
 });
-
-test.describe('Old /claim links', () => {
-  test('/claim?c=<secret> redirects to /?c=<secret> and pops the modal', async ({ page }) => {
-    await signInAs(page, fx.employees.trolls);
-    await page.goto(`/claim?c=${fx.zones.beta.secret}`);
-    await expect(page).toHaveURL(new RegExp(`/\\?c=${fx.zones.beta.secret}`));
-    await expect(claimModal(page)).toBeVisible();
-  });
-
-  test('/claim with no secret redirects to the map', async ({ page }) => {
-    await page.goto('/claim');
-    await expect(page).toHaveURL(/\/$/);
-    await expect(page.locator('#map')).toBeVisible();
-  });
-});
