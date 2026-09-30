@@ -115,6 +115,7 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 | `ADMIN_PASSWORD`  | `changeme` | Admin page password. **Change this.**   |
 | `DATA_DIR`        | `./data`   | Directory for the SQLite database file. |
 | `PUBLIC_BASE_URL` | (none)     | Public URL encoded in QR codes.         |
+| `BODY_SIZE_LIMIT` | `10485760` | Max request body in bytes (10 MB), for zone imports and hint images. |
 
 ## The Heist (`/heist72`)
 

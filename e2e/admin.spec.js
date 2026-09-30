@@ -112,6 +112,20 @@ test.describe('Zone import API keeps QR secrets', () => {
   const post = (request, zones, replace = false) =>
     request.post('/api/admin/zones/import', { headers: { 'x-admin-password': fx.admin }, data: { zones, replace } });
 
+  test('accepts files well over the old 512 KB limit, and says clearly when one is too large', async ({ request }) => {
+    const headers = { 'x-admin-password': fx.admin };
+    // 1.5 MB, like an export with a few hint images: parsed (then rejected only for
+    // having no zones), so nothing is written.
+    const big = await request.post('/api/admin/zones/import', { headers, data: { zones: [], pad: 'x'.repeat(1.5 * 1024 * 1024) } });
+    expect(big.status()).toBe(400);
+    expect((await big.json()).message).toBe('No zones found in the file');
+
+    // Over the 10 MB default: a 413 that names the size, not "not valid JSON".
+    const huge = await request.post('/api/admin/zones/import', { headers, data: { zones: [], pad: 'x'.repeat(11 * 1024 * 1024) } });
+    expect(huge.status()).toBe(413);
+    expect((await huge.json()).message).toMatch(/^That file \(11\.0 MB\) is larger than this server accepts\. Raise BODY_SIZE_LIMIT/);
+  });
+
   test('an exported secret is reused, so the QR code resolves to the imported zone', async ({ request }) => {
     const secret = `keep_${Date.now().toString(36)}`;
     const res = await post(request, [{ name: `Kept QR ${secret}`, hint: '', polygon: POLY, secret }]);
