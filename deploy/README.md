@@ -93,17 +93,12 @@ from the **admin** page (`/admin`) already encode the correct public link.
 
 ## 6. The Heist (`/heist`, `/heist72`)
 
-`https://<your-domain>/heist` shows Flabber Gast's note, and
-`https://<your-domain>/heist72` serves the maze. Nothing to configure: the first
-request to `/heist72` creates a private random seed in
-`/var/lib/geocache/maze-seed`, which fixes the layout and every square code.
-Deploys and setup runs leave it alone. **Don't delete or change it once the maze
-is archived**, or the live page stops matching the capture; back it up with the
-database (below).
-
-To archive it, open `/heist72` once to confirm it works, then submit
-`https://<your-domain>/heist72`, with no `#…` part, to
-<https://web.archive.org/save>.
+Both `https://<your-domain>/heist` and `https://<your-domain>/heist72` show
+Flabber Gast's note. The maze that used to be at `/heist72` lives only in the
+Wayback Machine now; its code and prize image are no longer part of the app, and
+deploying deletes them from `/opt/geocache`. Nothing to configure.
+`/var/lib/geocache/maze-seed`, left over from when the maze was live, is no
+longer used and can be deleted.
 
 ---
 
@@ -164,14 +159,14 @@ then up to 2 minutes until the next check, then the rebuild.
 ### Back up / restore the database
 
 ```bash
-# Back up (safe while running; copies the DB, WAL, and the heist maze's seed)
+# Back up (safe while running; copies the DB and WAL)
 mkdir -p ~/geocache-backup
-sudo cp /var/lib/geocache/geocache.db* /var/lib/geocache/maze-seed ~/geocache-backup/
+sudo cp /var/lib/geocache/geocache.db* ~/geocache-backup/
 
 # Restore
 sudo systemctl stop geocache
-sudo cp ~/geocache-backup/geocache.db* ~/geocache-backup/maze-seed /var/lib/geocache/
-sudo chown geocache:geocache /var/lib/geocache/geocache.db* /var/lib/geocache/maze-seed
+sudo cp ~/geocache-backup/geocache.db* /var/lib/geocache/
+sudo chown geocache:geocache /var/lib/geocache/geocache.db*
 sudo systemctl start geocache
 ```
 

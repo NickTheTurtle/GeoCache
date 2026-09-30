@@ -1,6 +1,6 @@
-// The note now served at /heist. The maze itself lives on only in the Wayback
-// Machine capture of this URL; the note sends players there (the "machine from
-// the Museum"). Like the maze, it is a self-contained page with no scripts.
+// The note served at /heist and /heist72. The maze itself lives on only in the
+// Wayback Machine's capture of /heist72; the note sends players there (the
+// "machine from the Museum"). A self-contained page with no scripts.
 
 const PARAGRAPHS = [
   'You’re the most unreliable, worthless pieces of rookie meat I’ve ever had the misfortune to encounter. I TOLD you to be on time. “Not a second too late,” I said. I even waited an extra 30 minutes for your sorry asses.',

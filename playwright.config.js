@@ -9,8 +9,6 @@ import { defineConfig, devices } from '@playwright/test';
 const HTTPS_PORT = 8443;
 const BASE_URL = `https://localhost:${HTTPS_PORT}`;
 const ADMIN_PASSWORD = 'e2e-secret-pw';
-// Fixed maze config so e2e/maze.spec.js can rebuild the same maze and solve it.
-const MAZE_ENV = { MAZE_SEED: 'e2e-seed', MAZE_SIZE: '8x8' };
 
 export default defineConfig({
   testDir: './e2e',
@@ -58,9 +56,8 @@ export default defineConfig({
       PORT: String(HTTPS_PORT),
       HTTP_PORT: '8080',
       NODE_TLS_REJECT_UNAUTHORIZED: '0',
-      ...MAZE_ENV,
     },
   },
 });
 
-export { BASE_URL, ADMIN_PASSWORD, MAZE_ENV };
+export { BASE_URL, ADMIN_PASSWORD };
