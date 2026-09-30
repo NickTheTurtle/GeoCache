@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { fixture, expectLegible } from './helpers.js';
+import { fixture, expectLegible, slowBodyRequest, createZone } from './helpers.js';
 
 const fx = fixture();
 
@@ -45,9 +45,22 @@ test.describe('Admin console', () => {
     await expect(page.locator('h2', { hasText: 'Employees' })).toBeVisible();
 
     const name = `Test Employee ${Date.now()}`;
-    await page.locator('#grpName').fill(name);
-    await page.getByRole('button', { name: 'Create employee' }).click();
-    await expect(page.locator('body')).toContainText(name);
+    const field = page.locator('#grpName');
+    const create = page.getByRole('button', { name: 'Create', exact: true });
+    // The button sits on the same line as the name field, even on a phone.
+    const [fb, bb] = [await field.boundingBox(), await create.boundingBox()];
+    expect(Math.abs(fb.y + fb.height / 2 - (bb.y + bb.height / 2))).toBeLessThan(4);
+    expect(bb.x + bb.width).toBeLessThanOrEqual((page.viewportSize()?.width ?? 0) + 0.5);
+
+    await field.fill(name);
+    await create.click();
+    await expect(page.locator('.zone-item', { hasText: name })).toBeVisible();
+    await expect(field).toHaveValue('');
+
+    const viaEnter = `Enter Employee ${Date.now()}`;
+    await field.fill(viaEnter);
+    await field.press('Enter'); // Enter submits too
+    await expect(page.locator('.zone-item', { hasText: viaEnter })).toBeVisible();
   });
 
   test('imports zones from a JSON file and lists them', async ({ page }) => {
@@ -104,6 +117,124 @@ test.describe('Admin console', () => {
       page.getByRole('link', { name: 'Export zones' }).click(),
     ]);
     expect(download.suggestedFilename()).toBe('care-zones.json');
+  });
+
+  test('adjusts an employee\u2019s points and deletes an employee', async ({ page, request }) => {
+    const headers = { 'x-admin-password': fx.admin };
+    const name = `Temp Employee ${Date.now()}`;
+    const created = await (await request.post('/api/employees', { headers, data: { name } })).json();
+
+    await page.goto('/admin');
+    await page.locator('#pw').fill(fx.admin);
+    await page.getByRole('button', { name: 'Log in' }).click();
+    await page.getByRole('tab', { name: 'Employees' }).click();
+    const card = page.locator('.zone-item', { hasText: name });
+    await expect(card.locator('.stepper-value')).toHaveText('0 pts');
+    await expect(card.locator('.adjustment')).toHaveCount(0); // hidden when there's no adjustment
+
+    const plus = card.getByRole('button', { name: `Add a point for ${name}` });
+    const minus = card.getByRole('button', { name: `Subtract a point from ${name}` });
+    for (let i = 0; i < 3; i++) await plus.click();
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*3 pts\s*\(\+3\)\s*$/);
+    for (let i = 0; i < 4; i++) await minus.click();
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*\u22121 pts\s*\(\u22121\)\s*$/);
+    await expect(card.locator('.adjustment')).toHaveClass(/neg/);
+    for (let i = 0; i < 3; i++) await plus.click();
+    await expect.poll(async () => {
+      const board = await (await request.get('/api/leaderboard')).json();
+      return board.find((r) => r.id === created.id)?.points;
+    }).toBe(2);
+    await page.reload(); // the total survives a reload (saved server-side; login is kept for the session)
+    await page.getByRole('tab', { name: 'Employees' }).click();
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*2 pts\s*\(\+2\)\s*$/);
+
+    await card.getByRole('button', { name: 'Delete' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete employee' }).click();
+    await expect(page.locator('.zone-item', { hasText: name })).toHaveCount(0);
+    expect((await request.get(`/api/employees/${created.token}`)).status()).toBe(404);
+  });
+});
+
+test.describe('Admin stepper under concurrency', () => {
+  test('a refresh that lands while a tap is saving doesn\u2019t wipe the tap', async ({ page, request }) => {
+    const H = { 'x-admin-password': fx.admin };
+    const name = `Stepper ${Date.now()}`;
+    await request.post('/api/employees', { headers: H, data: { name } });
+    await page.goto('/admin');
+    await page.locator('#pw').fill(fx.admin);
+    await page.getByRole('button', { name: 'Log in' }).click();
+    await page.getByRole('tab', { name: 'Employees' }).click();
+    const card = page.locator('.zone-item', { hasText: name });
+    await expect(card.locator('.stepper-value')).toHaveText('0 pts');
+
+    // The save is slow (a phone on a bad connection)...
+    let release;
+    const held = new Promise((r) => (release = r));
+    await page.route('**/api/admin/employees/*/points', async (route) => { await held; await route.continue(); });
+    await card.getByRole('button', { name: `Add a point for ${name}` }).click();
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*1 pts\s*\(\+1\)\s*$/);
+
+    // ...and meanwhile the employee list refreshes (here: creating another employee).
+    await page.locator('#grpName').fill(`Other ${Date.now()}`);
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
+    await expect(page.locator('.toast', { hasText: 'Employee created' })).toBeVisible();
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*1 pts\s*\(\+1\)\s*$/); // not back to 0
+
+    release();
+    await expect.poll(async () => (await (await request.get('/api/employees', { headers: H })).json()).find((e) => e.name === name)?.points).toBe(1);
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*1 pts\s*\(\+1\)\s*$/);
+  });
+});
+
+test.describe('Employee admin API', () => {
+  test('points and delete endpoints need the admin password and validate input', async ({ request }) => {
+    const headers = { 'x-admin-password': fx.admin };
+    const e = await (await request.post('/api/employees', { headers, data: { name: `API ${Date.now()}` } })).json();
+
+    expect((await request.post(`/api/admin/employees/${e.id}/points`, { data: { delta: 5 } })).status()).toBe(401);
+    expect((await request.delete(`/api/admin/employees/${e.id}`)).status()).toBe(401);
+
+    for (const delta of [0, 1.5, 'abc', 5000]) {
+      const bad = await request.post(`/api/admin/employees/${e.id}/points`, { headers, data: { delta } });
+      expect(bad.status()).toBe(400);
+    }
+    const ok = await request.post(`/api/admin/employees/${e.id}/points`, { headers, data: { delta: -4 } });
+    expect(await ok.json()).toEqual({ points: -4 });
+
+    expect((await request.delete(`/api/admin/employees/${e.id}`, { headers })).status()).toBe(200);
+    expect((await request.delete(`/api/admin/employees/${e.id}`, { headers })).status()).toBe(404);
+    expect((await request.post(`/api/admin/employees/${e.id}/points`, { headers, data: { delta: 1 } })).status()).toBe(404);
+  });
+});
+
+test.describe('Admin writes racing a delete', () => {
+  // Each request's body is still uploading when the employee or zone it targets is
+  // deleted (or the game is reset). The server must answer 404, never crash with a 500.
+  const H = { 'x-admin-password': fx.admin };
+  const newEmployee = async (request) =>
+    (await request.post('/api/employees', { headers: H, data: { name: `Race ${Date.now()}` } })).json();
+
+  test('point tap vs employee delete', async ({ request, baseURL }) => {
+    const e = await newEmployee(request);
+    const status = await slowBodyRequest(baseURL, 'POST', `/api/admin/employees/${e.id}/points`, H, { delta: 1 },
+      () => request.delete(`/api/admin/employees/${e.id}`, { headers: H }));
+    expect(status).toBe(404);
+  });
+
+  test('manual claim vs zone delete', async ({ request, baseURL }) => {
+    const e = await newEmployee(request);
+    const z = await createZone(request, fx.admin);
+    const status = await slowBodyRequest(baseURL, 'POST', `/api/admin/zones/${z.id}/claim`, H, { employeeId: e.id },
+      () => request.delete(`/api/admin/zones/${z.id}`, { headers: H }));
+    expect(status).toBe(404);
+  });
+
+  test('zone edit vs zone delete', async ({ request, baseURL }) => {
+    const z = await createZone(request, fx.admin);
+    const status = await slowBodyRequest(baseURL, 'PUT', `/api/admin/zones/${z.id}`, H,
+      { name: 'Edited', hint: '', polygon: z.polygon },
+      () => request.delete(`/api/admin/zones/${z.id}`, { headers: H }));
+    expect(status).toBe(404);
   });
 });
 

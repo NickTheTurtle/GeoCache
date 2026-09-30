@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { loadLeaflet, addBaseLayer, SF_CENTER } from '$lib/leaflet.js';
   import BrandIcon from '$lib/BrandIcon.svelte';
-  import { escapeHtml, getJson, poll, CLAIM_RADIUS_M } from '$lib/util.js';
+  import { escapeHtml, getJson, poll, CLAIM_RADIUS_M, formatPts, formatDelta } from '$lib/util.js';
 
   const PW_KEY = 'geocache_admin_pw';
 
@@ -93,18 +93,27 @@
     startApp();
   }
 
+  // Signed token for QR <img>/<a> URLs, so the password stays out of the URL. It
+  // lasts 12h; renew it hourly so a console left open all day keeps working.
+  let tokenAt = 0;
+  async function refreshImgToken() {
+    const r = await fetch('/api/admin/token', { headers: authHeaders() }).catch(() => null);
+    const t = r?.ok ? (await r.json()).token : null;
+    if (t) { imgToken = t; tokenAt = Date.now(); }
+  }
+  const TOKEN_RENEW_MS = 60 * 60 * 1000;
+
   async function startApp() {
     loggedIn = true;
-    // Signed token for QR <img>/<a> URLs, so the password stays out of the URL.
-    imgToken = await fetch('/api/admin/token', { headers: authHeaders() })
-      .then((r) => r.json())
-      .then((d) => d.token)
-      .catch(() => '');
+    await refreshImgToken();
     if (!map) await initMap();
-    loadZones(); // also refreshes employees
+    refresh(); // also refreshes employees
     // Poll so claims/employees made elsewhere (e.g. an employee scanning a QR) show up
     // without a manual refresh.
-    stopSync ??= poll(loadZones, 15000);
+    stopSync ??= poll(() => Promise.all([
+      loadZones(),
+      Date.now() - tokenAt > TOKEN_RENEW_MS ? refreshImgToken() : null,
+    ]), 15000);
   }
 
   async function initMap() {
@@ -225,8 +234,17 @@
   }
 
   // ---------- Employees ----------
+  // Stepper taps show before the server confirms them. A list fetched while a tap
+  // was saving doesn't include that tap, so it mustn't replace the on-screen
+  // numbers; one refresh runs once every tap has saved.
+  let tapsSaving = 0;
+  let tapEpoch = 0;
+  function applyEmployees(list, epochAtFetch) {
+    if (tapsSaving === 0 && epochAtFetch === tapEpoch) employees = list;
+  }
   async function loadEmployees() {
-    employees = await getJson('/api/employees', { headers: authHeaders() });
+    const epoch = tapEpoch;
+    applyEmployees(await getJson('/api/employees', { headers: authHeaders() }), epoch);
   }
 
   async function createEmployeeAdmin() {
@@ -242,20 +260,58 @@
     if (!res.ok) { grpErr = data.message || 'Failed to create employee.'; return; }
     grpName = '';
     toast('Employee created');
-    loadEmployees();
+    loadEmployees().catch(() => {});
   }
 
   function copyEmployeeLink(token) {
     navigator.clipboard.writeText(employeeLink(token)).then(() => toast('Personal link copied'));
   }
 
+  async function deleteEmployee(e) {
+    const ok = await customConfirm({
+      title: 'Delete employee',
+      message: `Delete "${e.name}"? Their personal link stops working, and their claims and points are removed.`,
+      okLabel: 'Delete employee',
+    });
+    if (!ok) return;
+    const res = await fetch(`/api/admin/employees/${e.id}`, { method: 'DELETE', headers: authHeaders() });
+    if (!res.ok) { toast('Could not delete employee'); return; }
+    toast('Employee deleted');
+    refresh(); // also refreshes employees (zone cards list who claimed)
+  }
+
+  // Stepper taps: show the new total immediately, then save. Taps are independent
+  // +1/-1 deltas, so rapid taps can't overwrite each other on the server.
+  async function adjustEmployeePoints(e, delta) {
+    e.points += delta;
+    e.adjustment += delta;
+    tapEpoch++;
+    tapsSaving++;
+    const res = await fetch(`/api/admin/employees/${e.id}/points`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ delta }),
+    }).catch(() => null);
+    tapsSaving--;
+    if (!res?.ok) {
+      const data = await res?.json().catch(() => ({}));
+      toast(data?.message || 'Could not adjust points');
+    }
+    // Sync with the server once the last tap has saved (picks up failures and
+    // other admins' taps).
+    if (tapsSaving === 0) loadEmployees().catch(() => {});
+  }
+
   // ---------- Zones ----------
+  // Refresh zones + employees after a change; a failure is retried by the 15s poll.
+  const refresh = () => loadZones().catch(() => {});
   async function loadZones() {
+    const epoch = tapEpoch;
     const [zList, cList] = await Promise.all([
       getJson('/api/admin/zones', { headers: authHeaders() }),
       getJson('/api/employees', { headers: authHeaders() }),
     ]);
-    employees = cList;
+    applyEmployees(cList, epoch);
     zones = zList;
 
     // Diff the saved-zone layers instead of wiping them, so the 15s poll
@@ -296,7 +352,7 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { toast(data.message || 'Claim failed'); return; }
     toast(data.status === 'already-yours' ? 'Employee already claimed it.' : 'Zone claimed');
-    loadZones();
+    refresh();
   }
 
   async function unclaimZoneFor(zoneId, employeeId) {
@@ -307,7 +363,7 @@
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); toast(d.message || 'Failed'); return; }
     toast('Claim removed');
-    loadZones();
+    refresh();
   }
 
   function onImagePick(e) {
@@ -358,7 +414,7 @@
     toast(editingId ? 'Zone updated' : 'Zone created');
     resetForm();
     clearDraft();
-    loadZones();
+    refresh();
   }
 
   function editZone(id) {
@@ -389,7 +445,7 @@
     });
     if (!ok) return;
     const res = await fetch(`/api/admin/zones/${id}`, { method: 'DELETE', headers: authHeaders() });
-    if (res.ok) { toast('Zone deleted'); loadZones(); }
+    if (res.ok) { toast('Zone deleted'); refresh(); }
   }
 
   function cancelEdit() { resetForm(); clearDraft(); }
@@ -451,7 +507,7 @@
       if (!res.ok) { importErr = data.message || 'Import failed.'; return; }
       toast(`Imported ${data.imported} zone${data.imported === 1 ? '' : 's'}`);
       if (map) { map.setView(SF_CENTER, 12); }
-      loadZones();
+      refresh();
     } finally {
       importing = false;
       if (importInput) importInput.value = '';
@@ -484,7 +540,7 @@
       toast(keepZones ? 'Game reset, zones kept' : 'Game reset, zones deleted');
       resetForm();
       clearDraft();
-      loadZones(); // also refreshes employees
+      refresh(); // also refreshes employees
     } else {
       toast('Reset failed');
     }
@@ -625,19 +681,34 @@
       <div class="card">
         <h2>Employees</h2>
         <label for="grpName">Employee name</label>
-        <input id="grpName" placeholder="Jane Doe" maxlength="40" bind:value={grpName} />
-        <div class="btn-row"><button type="button" onclick={createEmployeeAdmin}>Create employee</button></div>
+        <form class="inline-field" onsubmit={(ev) => { ev.preventDefault(); createEmployeeAdmin(); }}>
+          <input id="grpName" placeholder="Jane Doe" maxlength="40" bind:value={grpName} />
+          <button type="submit">Create</button>
+        </form>
         <div class="err">{grpErr}</div>
         <div class="employee-list">
           {#if employees.length === 0}
             <p class="muted">No employees yet</p>
           {:else}
-            {#each employees as c}
+            {#each employees as c (c.id)}
               <div class="zone-item">
-                <strong>{c.name}</strong>
+                <div class="employee-head">
+                  <strong>{c.name}</strong>
+                  <div class="points-stepper" role="group" aria-label={`Points for ${c.name}`}>
+                    <button class="secondary" type="button" aria-label={`Subtract a point from ${c.name}`} onclick={() => adjustEmployeePoints(c, -1)}>&minus;</button>
+                    <span class="points stepper-value" aria-live="polite">
+                      {formatPts(c.points)}
+                      {#if c.adjustment}
+                        <span class="adjustment" class:neg={c.adjustment < 0}>({formatDelta(c.adjustment)})</span>
+                      {/if}
+                    </span>
+                    <button class="secondary" type="button" aria-label={`Add a point for ${c.name}`} onclick={() => adjustEmployeePoints(c, 1)}>+</button>
+                  </div>
+                </div>
                 <div class="muted employee-link">{employeeLink(c.token)}</div>
                 <div class="row">
                   <button class="secondary" type="button" onclick={() => copyEmployeeLink(c.token)}>Copy link</button>
+                  <button class="danger" type="button" onclick={() => deleteEmployee(c)}>Delete</button>
                 </div>
               </div>
             {/each}

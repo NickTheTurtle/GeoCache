@@ -51,7 +51,8 @@ test.describe('Main map page', () => {
     await expect(board).toContainText('Bridge Trolls');
     // Fog Chasers pre-claimed Beta in setup, so it has at least one point.
     const fogRow = board.locator('li', { hasText: 'Fog Chasers' });
-    expect(Number(await fogRow.locator('.points').textContent())).toBeGreaterThanOrEqual(1);
+    await expect(fogRow.locator('.points')).toHaveText(/^\d+ pts$/); // numeric scores always read "N pts"
+    expect(parseInt(await fogRow.locator('.points').textContent(), 10)).toBeGreaterThanOrEqual(1);
     await expectLegible(fogRow.locator('.lname'));
     await expectLegible(fogRow.locator('.points'));
   });

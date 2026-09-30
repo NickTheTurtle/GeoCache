@@ -1,11 +1,12 @@
 import { error } from '@sveltejs/kit';
 import * as db from '$lib/server/db.js';
+import { parseId } from '$lib/server/config.js';
 
 // Serve a zone's hint image. Public (hints/images are not secret). The URL
 // carries a ?v= version token that changes on every upload, so the immutable
 // cache is safe.
 export function GET({ params }) {
-  const row = db.getZoneImage(Number(params.id));
+  const row = db.getZoneImage(parseId(params.id));
   if (!row || !row.image) throw error(404, 'No image');
   return new Response(Buffer.from(row.image), {
     headers: {

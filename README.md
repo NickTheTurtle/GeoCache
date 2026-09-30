@@ -13,8 +13,9 @@ QR codes, scan them, and score points.
   in and read its hint.
 - **QR claiming:** each zone has a unique QR code; scanning claims it for points.
 - **Leaderboard:** live ranking by points.
-- **Admin page:** draw/edit zones, write hints, bulk import/export, and
-  generate a QR code per zone.
+- **Admin page:** draw/edit zones, write hints, bulk import/export,
+  generate a QR code per zone, and manage employees (delete, or add/subtract
+  points on top of what they earned from claims).
 
 ## Run locally
 

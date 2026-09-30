@@ -171,6 +171,18 @@ export async function getJson(url, init) {
   return res.json();
 }
 
+// Keep retrying `task` until it succeeds (waiting 1s, 2s, 4s... up to 15s between
+// tries), so a page opened while the server is restarting recovers by itself.
+export async function untilOk(task) {
+  for (let wait = 1000; ; wait = Math.min(wait * 2, 15000)) {
+    try {
+      return await task();
+    } catch {
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+}
+
 // Run `task` every `ms` milliseconds without ever overlapping: a slow run
 // delays the next instead of stacking up. A failed run is ignored (the page keeps
 // its last good data and tries again next time). Returns a function that stops it.
@@ -193,3 +205,9 @@ export function poll(task, ms) {
 // How close (metres) an employee must be to an on-site zone's claim spot.
 // Shared so the admin map draws the same ring the server enforces.
 export const CLAIM_RADIUS_M = 40;
+
+// Every numeric score display uses these, so the site always reads "12 pts" and
+// negatives use a true minus sign (U+2212) rather than a hyphen.
+const MINUS = '\u2212';
+export const formatPts = (n) => `${n < 0 ? MINUS : ''}${Math.abs(n)} pts`;
+export const formatDelta = (n) => `${n < 0 ? MINUS : '+'}${Math.abs(n)}`;

@@ -35,4 +35,12 @@ test.describe('Heist note (JavaScript disabled)', () => {
       expect(await page.content(), path).not.toMatch(/Dear idiots|Flabber|Wayback|machine from the Museum|Claim Reward/);
     }
   });
+
+  test('unknown pages get the themed 404 with a way back to the map', async ({ page }) => {
+    const res = await page.goto('/no-such-page');
+    expect(res.status()).toBe(404);
+    await expect(page.locator('.topbar h1')).toContainText('C.A.R.E.');
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Back to the map' })).toHaveAttribute('href', '/');
+  });
 });

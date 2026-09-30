@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import * as db from '$lib/server/db.js';
-import { requireAdmin, parseZone } from '$lib/server/config.js';
+import { requireAdmin, parseZone, readBody } from '$lib/server/config.js';
 
 export function GET({ request, url }) {
   requireAdmin(request, url);
@@ -9,7 +9,7 @@ export function GET({ request, url }) {
 
 export async function POST({ request, url }) {
   requireAdmin(request, url);
-  const body = await request.json().catch(() => ({}));
+  const body = await readBody(request);
   const zone = db.createZone(parseZone(body));
   return json(db.zonePublic(zone), { status: 201 });
 }
