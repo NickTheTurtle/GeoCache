@@ -30,23 +30,23 @@ test.describe('Admin console', () => {
     await expect(page.getByRole('heading', { name: 'Zones', exact: true })).toBeVisible();
     await expect(page.locator('body')).toContainText('Alpha Cache');
 
-    // Crews live under the Crews tab.
-    await page.getByRole('tab', { name: 'Crews' }).click();
-    await expect(page.locator('h2', { hasText: 'Crews' })).toBeVisible();
-    await expectLegible(page.locator('h2', { hasText: 'Crews' }));
+    // Employees live under the Employees tab.
+    await page.getByRole('tab', { name: 'Employees' }).click();
+    await expect(page.locator('h2', { hasText: 'Employees' })).toBeVisible();
+    await expectLegible(page.locator('h2', { hasText: 'Employees' }));
     await expect(page.locator('body')).toContainText('Fog Chasers');
   });
 
-  test('can create a new crew from the console', async ({ page }) => {
+  test('can create a new employee from the console', async ({ page }) => {
     await page.goto('/admin');
     await page.locator('#pw').fill(fx.admin);
     await page.getByRole('button', { name: 'Log in' }).click();
-    await page.getByRole('tab', { name: 'Crews' }).click();
-    await expect(page.locator('h2', { hasText: 'Crews' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Employees' }).click();
+    await expect(page.locator('h2', { hasText: 'Employees' })).toBeVisible();
 
-    const name = `Test Crew ${Date.now()}`;
+    const name = `Test Employee ${Date.now()}`;
     await page.locator('#grpName').fill(name);
-    await page.getByRole('button', { name: 'Create crew' }).click();
+    await page.getByRole('button', { name: 'Create employee' }).click();
     await expect(page.locator('body')).toContainText(name);
   });
 

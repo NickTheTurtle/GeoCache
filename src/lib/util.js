@@ -129,11 +129,11 @@ function matchEmphasis(nodes) {
   }
 }
 
-// Shared zone polygon styling for the main map. Only zones the current crew has
+// Shared zone polygon styling for the main map. Only zones the current employee has
 // claimed are highlighted; everything else looks the same (unclaimed style) so
-// you can't tell what other crews have taken.
-export function zoneStyle(z, currentCrew) {
-  const mine = currentCrew && z.claimedBy.some((c) => c.id === currentCrew.id);
+// you can't tell what other employees have taken.
+export function zoneStyle(z, currentEmployee) {
+  const mine = currentEmployee && z.claimedBy.some((c) => c.id === currentEmployee.id);
   return {
     color: mine ? '#1f6f8f' : '#123a5c',
     weight: mine ? 5 : 3,

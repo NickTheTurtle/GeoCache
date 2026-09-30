@@ -1,13 +1,13 @@
 <script>
   import { onMount, onDestroy, tick } from 'svelte';
-  import { crew } from '$lib/crew.js';
+  import { employee } from '$lib/employee.js';
   import { loadLeaflet, addBaseLayer, SF_CENTER } from '$lib/leaflet.js';
   import { escapeHtml, zoneStyle, CHECK_ICON, extractSecret, renderHint } from '$lib/util.js';
   import Celebration from '$lib/Celebration.svelte';
   import BrandIcon from '$lib/BrandIcon.svelte';
 
   // Reactive UI state
-  let currentCrew = $state(null);
+  let currentEmployee = $state(null);
   let menuOpen = $state(false);
   let leaders = $state([]);
   let tab = $state('hunt');
@@ -19,7 +19,7 @@
   let zoneImageUrl = $state(null);
 
   let scanOpen = $state(false);
-  let scanMsg = $state('Point your camera at a zone\u2019s QR code to claim it.');
+  let scanMsg = $state('Point your camera at a QR code to claim it.');
   let scanMsgClass = $state('muted');
   // Success celebration state (shown after a claim instead of the camera box).
   let scanSuccess = $state(false);
@@ -28,7 +28,7 @@
   let successConfetti = $state(true);
 
   // Claim modal (opened from a scanned QR link: /?c=<secret>). Mirrors the
-  // scanner modal's look; lets a signed-in crew confirm a claim on the map page.
+  // scanner modal's look; lets a signed-in employee confirm a claim on the map page.
   let claimOpen = $state(false);
   let claimSecret = $state(null);
   let claimZoneName = $state('');
@@ -56,8 +56,8 @@
   let mapEl;
   let modalMapEl;
 
-  const unsub = crew.subscribe((v) => {
-    currentCrew = v;
+  const unsub = employee.subscribe((v) => {
+    currentEmployee = v;
     if (mapReady) restyleZones();
   });
   onDestroy(unsub);
@@ -65,7 +65,7 @@
   function signOut() {
     menuOpen = false;
     if (location.search) history.replaceState(null, '', location.pathname);
-    crew.set(null);
+    employee.set(null);
   }
 
   // ---------- Zones ----------
@@ -81,9 +81,9 @@
       let entry = zoneLayers.get(z.id);
       if (entry) {
         entry.data = z;
-        entry.layer.setStyle(zoneStyle(z, currentCrew));
+        entry.layer.setStyle(zoneStyle(z, currentEmployee));
       } else {
-        const layer = L.polygon(z.polygon, zoneStyle(z, currentCrew)).addTo(map);
+        const layer = L.polygon(z.polygon, zoneStyle(z, currentEmployee)).addTo(map);
         layer.on('click', () => openZoneModal(zoneLayers.get(z.id).data));
         entry = { layer, data: z };
         zoneLayers.set(z.id, entry);
@@ -99,7 +99,7 @@
   }
 
   function restyleZones() {
-    for (const [, entry] of zoneLayers) entry.layer.setStyle(zoneStyle(entry.data, currentCrew));
+    for (const [, entry] of zoneLayers) entry.layer.setStyle(zoneStyle(entry.data, currentEmployee));
   }
 
   // ---------- Zone modal ----------
@@ -108,9 +108,9 @@
     zoneTitle = z.name;
     if (z.claimedBy.length) {
       const n = z.claimedBy.length;
-      zoneStatusHtml = `<span class="claimed-flag">${CHECK_ICON} Claimed by ${n} crew${n > 1 ? 's' : ''}</span>`;
+      zoneStatusHtml = `<span class="claimed-flag">${CHECK_ICON} Claimed by ${n} employee${n > 1 ? 's' : ''}</span>`;
     } else {
-      zoneStatusHtml = `<span class="status">Unclaimed. Find the object &amp; scan its QR!</span>`;
+      zoneStatusHtml = `<span class="status">Unclaimed. Find the QR code &amp; scan it!</span>`;
     }
     zoneImageUrl = z.image || null;
     zoneHintText = (z.hint || '').trim() || (zoneImageUrl ? '' : '(blank)');
@@ -120,7 +120,7 @@
       addBaseLayer(L, modalMap, null);
     }
     if (modalLayer) modalMap.removeLayer(modalLayer);
-    modalLayer = L.polygon(z.polygon, zoneStyle(z, currentCrew)).addTo(modalMap);
+    modalLayer = L.polygon(z.polygon, zoneStyle(z, currentEmployee)).addTo(modalMap);
 
     setTimeout(() => {
       modalMap.invalidateSize();
@@ -151,9 +151,9 @@
     });
   }
 
-  // POST a claim, optionally including the crew's GPS coords.
+  // POST a claim, optionally including the employee's GPS coords.
   async function postClaim(secret, coords) {
-    const body = { secret, crewToken: currentCrew.token };
+    const body = { secret, employeeToken: currentEmployee.token };
     if (coords) {
       body.lat = coords.latitude;
       body.lng = coords.longitude;
@@ -188,7 +188,7 @@
     scanOpen = true;
     scanSuccess = false;
     scanErr = false;
-    scanMsg = 'Point your camera at a zone\u2019s QR code to claim it.';
+    scanMsg = 'Point your camera at a QR code to claim it.';
     scanMsgClass = 'muted';
     let Html5Qrcode;
     try {
@@ -223,8 +223,8 @@
       return;
     }
     await stopScanner();
-    if (!currentCrew) {
-      scanMsg = 'Open your crew link first, then scan to claim.';
+    if (!currentEmployee) {
+      scanMsg = 'Open your personal link first, then scan to claim.';
       scanMsgClass = 'err';
       scanErr = true;
       return;
@@ -234,11 +234,11 @@
     try {
       const { res, data } = await claimZoneBySecret(secret);
       if (res.ok && data.status === 'claimed') {
-	  celebrate(`Claimed ${data.zone.name} for ${currentCrew.name}! +${data.points} point${data.points === 1 ? '' : 's'}${data.first ? '. First to solve!' : ''}.`);
+	  celebrate(`Claimed ${data.zone.name} for ${currentEmployee.name}! +${data.points} point${data.points === 1 ? '' : 's'}${data.first ? '. First to solve!' : ''}.`);
 	  loadZones();
 	  loadLeaderboard();
 	  } else if (data.status === 'already-yours') {
-	  celebrate(`Your crew already claimed ${data.zone.name}.`, false);
+	  celebrate(`You already claimed ${data.zone.name}.`, false);
 	  } else if (data.status === 'too-far') {
 	  scanMsg = `This zone can only be claimed on-site. You\u2019re not in the right location.`;
 	  scanMsgClass = 'err';
@@ -351,17 +351,17 @@
     if (map) map.invalidateSize();
   }
 
-  // ---------- URL crew adoption ----------
-  async function adoptCrewFromUrl() {
+  // ---------- URL employee adoption ----------
+  async function adoptEmployeeFromUrl() {
     const params = new URLSearchParams(location.search);
     const token = params.get('g');
     if (!token) return;
     try {
-      const g = await fetch(`/api/crews/${encodeURIComponent(token)}`).then((r) => {
+      const g = await fetch(`/api/employees/${encodeURIComponent(token)}`).then((r) => {
         if (!r.ok) throw new Error('not found');
         return r.json();
       });
-      crew.set(g);
+      employee.set(g);
     } catch {
       /* ignore invalid token */
     }
@@ -382,9 +382,9 @@
       claimZoneName = z.name;
       claimRequirePresence = !!z.requirePresence;
       const claimers = z.claimedBy || [];
-      claimOtherCount = claimers.filter((c) => !currentCrew || c.id !== currentCrew.id).length;
-      if (currentCrew && claimers.some((c) => c.id === currentCrew.id)) claimView = 'already';
-      else if (!currentCrew) claimView = 'signin';
+      claimOtherCount = claimers.filter((c) => !currentEmployee || c.id !== currentEmployee.id).length;
+      if (currentEmployee && claimers.some((c) => c.id === currentEmployee.id)) claimView = 'already';
+      else if (!currentEmployee) claimView = 'signin';
       else claimView = 'claim';
     } catch {
       claimView = 'error';
@@ -436,7 +436,7 @@
     window.addEventListener('keydown', onKeydown);
     window.addEventListener('click', onDocClick);
     const claimParam = new URLSearchParams(location.search).get('c');
-    await adoptCrewFromUrl();
+    await adoptEmployeeFromUrl();
     if (claimParam) openClaim(claimParam); // pop the claim modal (parallel with map init)
     L = await loadLeaflet();
 
@@ -488,8 +488,8 @@
     <h1><BrandIcon /> C.A.R.E.</h1>
   </div>
   <div class="spacer"></div>
-  {#if currentCrew}
-    <div class="crew-menu signed-in">
+  {#if currentEmployee}
+    <div class="employee-menu signed-in">
       <button
         class="badge"
         type="button"
@@ -497,9 +497,9 @@
         aria-expanded={menuOpen}
         onclick={(e) => { e.stopPropagation(); menuOpen = !menuOpen; }}
       >
-        Crew: <strong>{currentCrew.name}</strong><span class="caret" aria-hidden="true"></span>
+        Employee: <strong>{currentEmployee.name}</strong><span class="caret" aria-hidden="true"></span>
       </button>
-      <div class="crew-dropdown" role="menu" hidden={!menuOpen}>
+      <div class="employee-dropdown" role="menu" hidden={!menuOpen}>
         <button type="button" role="menuitem" onclick={signOut}>Sign out</button>
       </div>
     </div>
@@ -519,7 +519,7 @@
         <h2><svg class="h2-ico" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3M8 21h8M12 17v4"/></svg> Leaderboard</h2>
         <ul class="leaderboard">
           {#if leaders.length === 0}
-            <li class="muted">No crews yet.</li>
+            <li class="muted">No employees yet.</li>
           {:else}
             {#each leaders as r, i}
               <li>
@@ -609,26 +609,26 @@
       {:else if claimView === 'error'}
         <p class="err">We couldn’t find a zone for that QR code.</p>
       {:else if claimView === 'signin'}
-        <p>To claim <strong>{claimZoneName}</strong>, open the personal link your game host sent your crew, then scan again.</p>
-        <p class="muted modal-note">Don’t have a link? Ask your host to set up your crew.</p>
+        <p>To claim <strong>{claimZoneName}</strong>, open the personal link you were sent, then scan again.</p>
+        <p class="muted modal-note">Don’t have a link? Ask to be added as an employee.</p>
       {:else if claimView === 'claim'}
-        <p>Claim <strong>{claimZoneName}</strong> for <strong>{currentCrew?.name}</strong> and score points. First to solve earns a bonus!</p>
+        <p>Claim <strong>{claimZoneName}</strong> for <strong>{currentEmployee?.name}</strong> and score points. First to solve earns a bonus!</p>
         {#if claimRequirePresence}<p class="muted modal-msg">📍 On-site only: you must be at the spot. We'll check your location when you claim.</p>{/if}
         <div class="success-actions claim-actions">
           <button onclick={doClaimFromModal} disabled={claiming}>{claiming ? 'Claiming…' : 'Claim this zone'}</button>
         </div>
         {#if claimErrMsg}<p class="err modal-msg">{claimErrMsg}</p>{/if}
-        {#if claimOtherCount}<p class="muted modal-msg">Also claimed by {claimOtherCount} other {claimOtherCount === 1 ? 'crew' : 'crews'}.</p>{/if}
+        {#if claimOtherCount}<p class="muted modal-msg">Also claimed by {claimOtherCount} other {claimOtherCount === 1 ? 'employee' : 'employees'}.</p>{/if}
       {:else if claimView === 'already'}
-        <Celebration text={`Your crew already claimed ${claimZoneName}.`} confettiOn={false}>
-          {#if claimOtherCount}<p class="muted">Also claimed by {claimOtherCount} other {claimOtherCount === 1 ? 'crew' : 'crews'}.</p>{/if}
+        <Celebration text={`You already claimed ${claimZoneName}.`} confettiOn={false}>
+          {#if claimOtherCount}<p class="muted">Also claimed by {claimOtherCount} other {claimOtherCount === 1 ? 'employee' : 'employees'}.</p>{/if}
           <div class="success-actions">
             <button onclick={() => { closeClaim(); setTab('board'); }}>See leaderboard</button>
             <button class="ghost" onclick={closeClaim}>Close</button>
           </div>
         </Celebration>
       {:else if claimView === 'claimed'}
-        <Celebration text={`Claimed ${claimZoneName} for ${currentCrew?.name}! +${claimPoints} point${claimPoints === 1 ? '' : 's'}${claimFirst ? '. First to solve!' : ''}.`}>
+        <Celebration text={`Claimed ${claimZoneName} for ${currentEmployee?.name}! +${claimPoints} point${claimPoints === 1 ? '' : 's'}${claimFirst ? '. First to solve!' : ''}.`}>
           <div class="success-actions">
             <button onclick={() => { closeClaim(); setTab('board'); }}>See leaderboard</button>
             <button class="ghost" onclick={closeClaim}>Close</button>

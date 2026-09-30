@@ -15,7 +15,7 @@
 
   // Data
   let zones = $state([]);
-  let crews = $state([]);
+  let employees = $state([]);
   let claimSel = $state({});
 
   // Zone form
@@ -34,7 +34,7 @@
   let removeImage = $state(false);
   let zImgInput = $state();
 
-  // Crew form
+  // Employee form
   let grpName = $state('');
   let grpErr = $state('');
 
@@ -78,7 +78,7 @@
     setTimeout(() => { toasts = toasts.filter((t) => t.id !== id); }, 2500);
   }
 
-  const crewLink = (token) => `${location.origin}/?g=${token}`;
+  const employeeLink = (token) => `${location.origin}/?g=${token}`;
 
   // ---------- Login ----------
   async function doLogin() {
@@ -101,8 +101,8 @@
       .then((d) => d.token)
       .catch(() => '');
     if (!map) await initMap();
-    loadZones(); // also refreshes crews
-    // Poll so claims/crews made elsewhere (e.g. a crew scanning a QR) show up
+    loadZones(); // also refreshes employees
+    // Poll so claims/employees made elsewhere (e.g. an employee scanning a QR) show up
     // without a manual refresh.
     if (!syncInterval) syncInterval = setInterval(() => loadZones(), 15000);
   }
@@ -224,38 +224,38 @@
     redrawDraft();
   }
 
-  // ---------- Crews ----------
-  async function loadCrews() {
-    crews = await fetch('/api/crews', { headers: authHeaders() }).then((r) => r.json());
+  // ---------- Employees ----------
+  async function loadEmployees() {
+    employees = await fetch('/api/employees', { headers: authHeaders() }).then((r) => r.json());
   }
 
-  async function createCrewAdmin() {
+  async function createEmployeeAdmin() {
     grpErr = '';
     const name = grpName.trim();
-    if (!name) { grpErr = 'Enter a crew name.'; return; }
-    const res = await fetch('/api/crews', {
+    if (!name) { grpErr = 'Enter an employee name.'; return; }
+    const res = await fetch('/api/employees', {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ name }),
     });
     const data = await res.json();
-    if (!res.ok) { grpErr = data.message || 'Failed to create crew.'; return; }
+    if (!res.ok) { grpErr = data.message || 'Failed to create employee.'; return; }
     grpName = '';
-    toast('Crew created');
-    loadCrews();
+    toast('Employee created');
+    loadEmployees();
   }
 
-  function copyCrewLink(token) {
-    navigator.clipboard.writeText(crewLink(token)).then(() => toast('Personal link copied'));
+  function copyEmployeeLink(token) {
+    navigator.clipboard.writeText(employeeLink(token)).then(() => toast('Personal link copied'));
   }
 
   // ---------- Zones ----------
   async function loadZones() {
     const [zList, cList] = await Promise.all([
       fetch('/api/admin/zones', { headers: authHeaders() }).then((r) => r.json()),
-      fetch('/api/crews', { headers: authHeaders() }).then((r) => r.json()),
+      fetch('/api/employees', { headers: authHeaders() }).then((r) => r.json()),
     ]);
-    crews = cList;
+    employees = cList;
     zones = zList;
 
     // Diff the saved-zone layers instead of wiping them, so the 15s poll
@@ -280,30 +280,30 @@
     }
   }
 
-  function availableCrews(z) {
+  function availableEmployees(z) {
     const claimedIds = new Set((z.claimedBy || []).map((c) => c.id));
-    return crews.filter((c) => !claimedIds.has(c.id));
+    return employees.filter((c) => !claimedIds.has(c.id));
   }
 
   async function claimZoneFor(zoneId) {
-    const crewId = Number(claimSel[zoneId]);
-    if (!crewId) return;
+    const employeeId = Number(claimSel[zoneId]);
+    if (!employeeId) return;
     const res = await fetch(`/api/admin/zones/${zoneId}/claim`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ crewId }),
+      body: JSON.stringify({ employeeId }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { toast(data.message || 'Claim failed'); return; }
-    toast(data.status === 'already-yours' ? 'Crew already claimed it.' : 'Zone claimed');
+    toast(data.status === 'already-yours' ? 'Employee already claimed it.' : 'Zone claimed');
     loadZones();
   }
 
-  async function unclaimZoneFor(zoneId, crewId) {
+  async function unclaimZoneFor(zoneId, employeeId) {
     const res = await fetch(`/api/admin/zones/${zoneId}/unclaim`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ crewId }),
+      body: JSON.stringify({ employeeId }),
     });
     if (!res.ok) { const d = await res.json().catch(() => ({})); toast(d.message || 'Failed'); return; }
     toast('Claim removed');
@@ -483,7 +483,7 @@
       toast(keepZones ? 'Game reset, zones kept' : 'Game reset, zones deleted');
       resetForm();
       clearDraft();
-      loadZones(); // also refreshes crews
+      loadZones(); // also refreshes employees
     } else {
       toast('Reset failed');
     }
@@ -535,7 +535,7 @@
     <div class="admin-panel">
       <div class="admin-tabs" role="tablist">
         <button class="admin-tab" class:active={adminTab === 'zones'} role="tab" aria-selected={adminTab === 'zones'} onclick={() => (adminTab = 'zones')}>Zones</button>
-        <button class="admin-tab" class:active={adminTab === 'crews'} role="tab" aria-selected={adminTab === 'crews'} onclick={() => (adminTab = 'crews')}>Crews</button>
+        <button class="admin-tab" class:active={adminTab === 'employees'} role="tab" aria-selected={adminTab === 'employees'} onclick={() => (adminTab = 'employees')}>Employees</button>
         <button class="admin-tab" class:active={adminTab === 'data'} role="tab" aria-selected={adminTab === 'data'} onclick={() => (adminTab = 'data')}>Data</button>
       </div>
 
@@ -602,14 +602,14 @@
                       <span class="muted claim-note">No claims yet</span>
                     {/if}
                   </div>
-                  {#if crews.length === 0}
-                    <div class="muted claim-note">Create a crew to assign claims</div>
-                  {:else if availableCrews(z).length === 0}
-                    <div class="muted claim-note">All crews have claimed this zone</div>
+                  {#if employees.length === 0}
+                    <div class="muted claim-note">Create an employee to assign claims</div>
+                  {:else if availableEmployees(z).length === 0}
+                    <div class="muted claim-note">All employees have claimed this zone</div>
                   {:else}
                     <div class="claim-row">
-                      <select bind:value={claimSel[z.id]} aria-label={`Choose a crew to claim ${z.name}`}>
-                        {#each availableCrews(z) as c}<option value={c.id}>{c.name}</option>{/each}
+                      <select bind:value={claimSel[z.id]} aria-label={`Choose an employee to claim ${z.name}`}>
+                        {#each availableEmployees(z) as c}<option value={c.id}>{c.name}</option>{/each}
                       </select>
                       <button class="secondary" type="button" onclick={() => claimZoneFor(z.id)}>Claim</button>
                     </div>
@@ -622,23 +622,23 @@
       </div>
       {/if}
 
-      {#if adminTab === 'crews'}
+      {#if adminTab === 'employees'}
       <div class="card">
-        <h2>Crews</h2>
-        <label for="grpName">Crew name</label>
-        <input id="grpName" placeholder="The Fog Chasers" maxlength="40" bind:value={grpName} />
-        <div class="btn-row"><button type="button" onclick={createCrewAdmin}>Create crew</button></div>
+        <h2>Employees</h2>
+        <label for="grpName">Employee name</label>
+        <input id="grpName" placeholder="Jane Doe" maxlength="40" bind:value={grpName} />
+        <div class="btn-row"><button type="button" onclick={createEmployeeAdmin}>Create employee</button></div>
         <div class="err">{grpErr}</div>
-        <div class="crew-list">
-          {#if crews.length === 0}
-            <p class="muted">No crews yet</p>
+        <div class="employee-list">
+          {#if employees.length === 0}
+            <p class="muted">No employees yet</p>
           {:else}
-            {#each crews as c}
+            {#each employees as c}
               <div class="zone-item">
                 <strong>{c.name}</strong>
-                <div class="muted crew-link">{crewLink(c.token)}</div>
+                <div class="muted employee-link">{employeeLink(c.token)}</div>
                 <div class="row">
-                  <button class="secondary" type="button" onclick={() => copyCrewLink(c.token)}>Copy link</button>
+                  <button class="secondary" type="button" onclick={() => copyEmployeeLink(c.token)}>Copy link</button>
                 </div>
               </div>
             {/each}
@@ -684,7 +684,7 @@
     <button class="modal-close" aria-label="Close" onclick={() => (resetOpen = false)}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     <div class="modal-body">
       <h2>Reset game</h2>
-      <p>This permanently clears all crews, claims and leaderboard points. What should happen to the zones and their QR codes?</p>
+      <p>This permanently clears all employees, claims and leaderboard points. What should happen to the zones and their QR codes?</p>
       <div class="modal-actions">
         <button class="secondary" type="button" onclick={() => doReset(true)}>Keep zones &amp; QR codes</button>
         <button class="danger" type="button" onclick={() => doReset(false)}>Delete zones too</button>

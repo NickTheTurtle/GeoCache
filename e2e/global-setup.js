@@ -45,12 +45,12 @@ async function waitForServer() {
 export default async function globalSetup() {
   await waitForServer();
 
-  // Clean slate: drop crews, claims, and zones.
+  // Clean slate: drop employees, claims, and zones.
   await api('/api/admin/reset', { method: 'POST', headers: H, body: JSON.stringify({ keepZones: false }) });
 
-  // Crews
-  const fog = await api('/api/crews', { method: 'POST', headers: H, body: JSON.stringify({ name: 'Fog Chasers' }) });
-  const trolls = await api('/api/crews', { method: 'POST', headers: H, body: JSON.stringify({ name: 'Bridge Trolls' }) });
+  // Employees
+  const fog = await api('/api/employees', { method: 'POST', headers: H, body: JSON.stringify({ name: 'Fog Chasers' }) });
+  const trolls = await api('/api/employees', { method: 'POST', headers: H, body: JSON.stringify({ name: 'Bridge Trolls' }) });
 
   // Zones
   const alpha = await api('/api/admin/zones', {
@@ -77,13 +77,13 @@ export default async function globalSetup() {
   await api(`/api/admin/zones/${beta.id}/claim`, {
     method: 'POST',
     headers: H,
-    body: JSON.stringify({ crewId: fog.id }),
+    body: JSON.stringify({ employeeId: fog.id }),
   });
 
   const fixture = {
     base: BASE,
     admin: ADMIN,
-    crews: { fog, trolls },
+    employees: { fog, trolls },
     zones: { alpha, beta },
   };
   writeFileSync(FIXTURE, JSON.stringify(fixture, null, 2));

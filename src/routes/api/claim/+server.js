@@ -2,21 +2,21 @@ import { json, error } from '@sveltejs/kit';
 import * as db from '$lib/server/db.js';
 import { haversineMeters } from '$lib/server/config.js';
 
-// How close (metres) a crew must be to the admin-placed claim spot. The
+// How close (metres) an employee must be to the admin-placed claim spot. The
 // device's own reported accuracy widens this when larger, capped so a wildly
 // inaccurate fix can't defeat the geofence.
 const CLAIM_RADIUS_M = 40;
 const MAX_ACCURACY_M = 100;
 
-// Claim a zone by its QR secret for the caller's crew.
+// Claim a zone by its QR secret for the caller's employee.
 export async function POST({ request }) {
   const body = await request.json().catch(() => ({}));
   const zone = db.getZoneBySecret((body.secret || '').trim());
   if (!zone) throw error(404, 'Unknown QR code');
-  const crew = db.getCrewByToken((body.crewToken || '').trim());
-  if (!crew) throw error(400, 'Unknown crew. Open your crew link first.');
+  const employee = db.getEmployeeByToken((body.employeeToken || '').trim());
+  if (!employee) throw error(400, 'Unknown employee. Open your personal link first.');
 
-  // Geofenced zones: the crew must be near the admin-placed claim spot.
+  // Geofenced zones: the employee must be near the admin-placed claim spot.
   if (zone.require_presence && Number.isFinite(zone.presence_lat) && Number.isFinite(zone.presence_lng)) {
     const lat = Number(body.lat);
     const lng = Number(body.lng);
@@ -34,6 +34,6 @@ export async function POST({ request }) {
     }
   }
 
-  const result = db.claimZone(zone.id, crew.id);
+  const result = db.claimZone(zone.id, employee.id);
   return json({ status: result.status, first: result.first, points: result.points, zone: { id: zone.id, name: zone.name } });
 }
