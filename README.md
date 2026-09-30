@@ -112,14 +112,15 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 | `DATA_DIR`        | `./data`   | Directory for the SQLite database file. |
 | `PUBLIC_BASE_URL` | (none)     | Public URL encoded in QR codes.         |
 | `MAZE_SEED`       | (generated) | `/heist72` layout and square codes. Default: random, kept in `DATA_DIR/maze-seed`. |
-| `MAZE_SIZE`       | `18`       | `/heist72` grid: `18` or `WxH` (5 to 40). |
+| `MAZE_SIZE`       | `15`       | `/heist72` grid: `15` or `WxH` (5 to 40). |
 
 ## The Heist (`/heist`, `/heist72`)
 
 - **`/heist`** serves **a note from "Flabber Gast"** (`src/lib/server/heistNote.js`)
   telling players to use "the machine from the Museum", the Wayback Machine.
 - **`/heist72`** serves the heist maze (`src/lib/server/maze.js`) so the Wayback
-  Machine can capture it. Players go from the Entrance to the Target with an
+  Machine can capture it. Players go from the Entrance to the Target (a bullseye near the middle; a perfect
+  run takes about 40 arrow presses, `TARGET_PRESSES`) with an
   on-screen arrow pad; reaching the Target shows "Target acquired!", Flabber Geese's closing lines,
   and a **Claim Reward** button (a native `<details>`, no JavaScript) that reveals
   the QR code in `assets/maze-prize.png`, inlined into the page. A 5:00 countdown

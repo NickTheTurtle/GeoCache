@@ -33,6 +33,7 @@ test.describe('Maze (JavaScript disabled)', () => {
     const say = page.locator('main > .say'); // the intro, not the win screen's
     await expect(say.locator('.who')).toHaveText('Flabber Geese:');
     await expect(say).toContainText('“Wow, you actually made it on time. I had very little faith in you.');
+    await expect(say).toContainText('Well? What are you waiting for? I disabled the lasers.');
     await expect(say).toContainText('I disabled the lasers. Grab the target, then scram.”');
   });
 
@@ -54,7 +55,7 @@ test.describe('Maze (JavaScript disabled)', () => {
       const from = maze.path[k];
       const [dir, name] = DIRS[maze.path[k + 1] - from];
       await arrow(page, name).click();
-      const to = slideTarget(maze.open, from, dir, w);
+      const to = slideTarget(maze.open, from, dir, w, maze.exit);
       k = maze.path.indexOf(to);
       expect(k, 'a slide along the true path stays on it').toBeGreaterThan(0);
       await atCell(page, to);
@@ -68,7 +69,8 @@ test.describe('Maze (JavaScript disabled)', () => {
     await expect(page).toHaveTitle('The Heist');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('The Heist');
     await expect(page.locator('.io.in > span').first()).toHaveText('Entrance ↓');
-    await expect(page.locator('.io.out')).toHaveText('↓ Target');
+    await expect(page.locator('.io.out')).toHaveText('Target');
+    await expect(page.locator('.g .tg')).toHaveCount(1); // the bullseye marks the Target square
     // Moving must not make the page jump around.
     expect(await page.evaluate(() => window.scrollY)).toBe(startY);
 
@@ -158,4 +160,29 @@ test.describe('Heist countdown (CSS only)', () => {
     await expect(page.locator('.win')).toBeVisible();
     expect(await state()).toBe('paused');
   });
+});
+
+test.describe('Heist arrow pad layout', () => {
+  for (const vp of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
+    test(`all four arrow slots are the same size and evenly aligned at ${vp.width}px`, async ({ page }) => {
+      await page.setViewportSize(vp);
+      await page.goto('/heist72');
+      const box = async (dir) => page.locator(`.pad .off.${dir}`).boundingBox();
+      const [u, l, r, d] = await Promise.all(['u', 'l', 'r', 'd'].map(box));
+      for (const [name, b] of Object.entries({ Up: u, Left: l, Right: r, Down: d })) {
+        expect(Math.round(b.width), `${name} width`).toBe(Math.round(u.width));
+        expect(Math.round(b.height), `${name} height`).toBe(Math.round(u.width));
+      }
+      const gap = l.y - (u.y + u.height);
+      expect(Math.round(u.x), 'Up is centered over Down').toBe(Math.round(d.x));
+      expect(Math.round(l.y), 'Left and Right share a row').toBe(Math.round(r.y));
+      expect(Math.round(d.y - (l.y + l.height)), 'even vertical gaps').toBe(Math.round(gap));
+      expect(Math.round(u.x - (l.x + l.width)), 'even horizontal gaps').toBe(Math.round(gap));
+      // A live arrow sits exactly on its slot.
+      const live = await page.locator('.pad a.ar:visible').first();
+      const lb = await live.boundingBox();
+      const slot = await page.locator(`.pad .off.${(await live.getAttribute('class')).split(' ')[1]}`).boundingBox();
+      expect([lb.x, lb.y, lb.width, lb.height].map(Math.round)).toEqual([slot.x, slot.y, slot.width, slot.height].map(Math.round));
+    });
+  }
 });
