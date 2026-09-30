@@ -1,4 +1,4 @@
-// The note served at /heist and /heist72. The maze itself lives on only in the
+// The note served at /heist72. The maze itself lives on only in the
 // Wayback Machine's capture of /heist72; the note sends players there (the
 // "machine from the Museum"). A self-contained page with no scripts.
 

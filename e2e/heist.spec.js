@@ -3,8 +3,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Heist note (JavaScript disabled)', () => {
   test.use({ javaScriptEnabled: false });
 
-  for (const path of ['/heist', '/heist72']) {
-    test(`${path} shows the note, not the maze`, async ({ page }) => {
+  test('/heist72 shows the note, not the maze', async ({ page }) => {
+    const path = '/heist72';
+    {
       const res = await page.goto(path);
       expect(res.status()).toBe(200);
       expect(res.headers()['content-type']).toBe('text/html; charset=utf-8');
@@ -23,6 +24,14 @@ test.describe('Heist note (JavaScript disabled)', () => {
       // None of the maze is left on the live page.
       await expect(page.locator('.pad, .g, .win, .say, img, [role="timer"]')).toHaveCount(0);
       expect(await page.content()).not.toMatch(/Claim Reward|Target acquired|Flabber Geese|data:image/);
-    });
-  }
+    }
+  });
+
+  test('/heist is gone: a 404 with nothing from the note', async ({ page }) => {
+    for (const path of ['/heist', '/heist/']) {
+      const res = await page.goto(path);
+      expect(res.status(), path).toBe(404);
+      expect(await page.content(), path).not.toMatch(/Dear idiots|Flabber|Wayback|machine from the Museum|Claim Reward/);
+    }
+  });
 });
