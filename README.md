@@ -2,12 +2,12 @@
 
 A GeoCaching game for you and your friends, bounded to San Francisco, live at
 <https://care.dxu.info>. Admins
-draw zones on a map and hide a QR-coded object in each; crews race to find the
-objects, scan the codes, and score points.
+draw zones on a map and hide a QR code in each; employees race to find the
+QR codes, scan them, and score points.
 
 ## Features
 
-- **One-click registration:** each crew gets a personal link (`/?g=<token>`)
+- **One-click registration:** each employee gets a personal link (`/?g=<token>`)
   that identifies them so scans claim zones for them.
 - **SF map** (Leaflet + OpenStreetMap): every zone is a boundary; click to zoom
   in and read its hint.
@@ -63,9 +63,10 @@ automatically after CI passes on `main` (see
 ## How to play
 
 1. **Admin** (`/admin`) draws each zone, adds a hint, saves, then **Download QR**
-   and attaches it to the physical object.
-2. **Players** open the site, create their crew, and keep their personal link.
-3. On finding an object, a crew scans its QR code and taps **Claim** for a point.
+   and hides the printed QR code in the zone.
+2. **Admin** creates each employee (Employees tab) and sends them their personal
+   link.
+3. On finding a QR code, an employee scans it and taps **Claim** for points.
 
 ## Bulk zones: import / export
 

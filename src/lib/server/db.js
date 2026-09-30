@@ -8,7 +8,7 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const db = new DatabaseSync(path.join(DATA_DIR, 'geocache.db'));
 
-// Scoring: solving any puzzle is worth SOLVE_POINTS; the first crew to solve a
+// Scoring: solving any puzzle is worth SOLVE_POINTS; the first employee to solve a
 // given puzzle earns an extra FIRST_BONUS on top.
 export const SOLVE_POINTS = 4;
 export const FIRST_BONUS = 1;
@@ -18,24 +18,55 @@ db.exec(`
   PRAGMA foreign_keys = ON;
 `);
 
-// Migration: rename the legacy `groups` table / `claims.group_id` column to
-// `crews` / `crew_id` (SQLite rewrites the dependent FK + UNIQUE constraints).
+// The claims table definition, shared by the initial CREATE and the migration below.
+const CLAIMS_COLUMNS = `
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    zone_id     INTEGER NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
+    employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')),
+    UNIQUE (zone_id, employee_id)   -- an employee can claim a given zone only once
+  `;
+
+// Migration: rename the legacy player table to `employees`, and its column in
+// `claims` to `employee_id`. It was first `groups` / `group_id`, then
+// `crews` / `crew_id`; SQLite rewrites the dependent FK + UNIQUE constraints.
+// `claims` is then rebuilt from CLAIMS_COLUMNS (same rows and ids) so its stored
+// definition carries no legacy names, even in comments. Before any change, a
+// one-off copy of the database is saved next to it.
 {
-  const tables = db
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
-    .all()
-    .map((t) => t.name);
-  if (tables.includes('groups') && !tables.includes('crews')) {
-    db.exec('ALTER TABLE groups RENAME TO crews');
-  }
-  const claimCols = db.prepare('PRAGMA table_info(claims)').all().map((c) => c.name);
-  if (claimCols.includes('group_id') && !claimCols.includes('crew_id')) {
-    db.exec('ALTER TABLE claims RENAME COLUMN group_id TO crew_id');
+  const tables = () => db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((t) => t.name);
+  const claimCols = () => db.prepare('PRAGMA table_info(claims)').all().map((c) => c.name);
+  const legacyTable = ['crews', 'groups'].find((t) => tables().includes(t));
+  const legacyCol = ['crew_id', 'group_id'].find((c) => claimCols().includes(c));
+  if ((legacyTable && !tables().includes('employees')) || (legacyCol && !claimCols().includes('employee_id'))) {
+    const backup = path.join(DATA_DIR, 'geocache.before-employees.db');
+    if (!fs.existsSync(backup)) db.exec(`VACUUM INTO '${backup.replace(/'/g, "''")}'`);
+    db.exec('BEGIN');
+    try {
+      if (legacyTable && !tables().includes('employees')) db.exec(`ALTER TABLE ${legacyTable} RENAME TO employees`);
+      if (legacyCol && !claimCols().includes('employee_id')) {
+        db.exec(`ALTER TABLE claims RENAME COLUMN ${legacyCol} TO employee_id`);
+        const seq = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'claims'").get()?.seq ?? 0;
+        db.exec(`
+          CREATE TABLE claims_rebuilt (${CLAIMS_COLUMNS});
+          INSERT INTO claims_rebuilt (id, zone_id, employee_id, created_at)
+            SELECT id, zone_id, employee_id, created_at FROM claims;
+          DROP TABLE claims;
+          ALTER TABLE claims_rebuilt RENAME TO claims;
+        `);
+        // Keep AUTOINCREMENT from ever reusing an id that was handed out before.
+        db.prepare("UPDATE sqlite_sequence SET seq = ? WHERE name = 'claims' AND seq < ?").run(seq, seq);
+      }
+      db.exec('COMMIT');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      throw e;
+    }
   }
 }
 
 db.exec(`
-  CREATE TABLE IF NOT EXISTS crews (
+  CREATE TABLE IF NOT EXISTS employees (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL,
     token      TEXT NOT NULL UNIQUE,
@@ -51,13 +82,7 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
-  CREATE TABLE IF NOT EXISTS claims (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    zone_id    INTEGER NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
-    crew_id    INTEGER NOT NULL REFERENCES crews(id) ON DELETE CASCADE,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')),
-    UNIQUE (zone_id, crew_id)   -- a crew can claim a given zone only once
-  );
+  CREATE TABLE IF NOT EXISTS claims (${CLAIMS_COLUMNS});
 `);
 
 // Migration: hint images (added after initial release). Stored as a BLOB so
@@ -70,7 +95,7 @@ db.exec(`
   if (!cols.includes('image_ver')) db.exec('ALTER TABLE zones ADD COLUMN image_ver TEXT');
 }
 
-// Migration: per-zone geofence. When require_presence is 1, a crew can only
+// Migration: per-zone geofence. When require_presence is 1, an employee can only
 // claim the zone while physically near the admin-placed claim spot
 // (presence_lat / presence_lng), checked server-side against the device's
 // reported GPS position. The spot is kept secret from players.
@@ -87,23 +112,23 @@ function newToken(bytes = 9) {
   return crypto.randomBytes(bytes).toString('base64url');
 }
 
-// ---------- Crews ----------
-export function createCrew(name) {
+// ---------- Employees ----------
+export function createEmployee(name) {
   const token = newToken();
-  const info = db.prepare('INSERT INTO crews (name, token) VALUES (?, ?)').run(name, token);
-  return getCrewById(info.lastInsertRowid);
+  const info = db.prepare('INSERT INTO employees (name, token) VALUES (?, ?)').run(name, token);
+  return getEmployeeById(info.lastInsertRowid);
 }
 
-export function getCrewById(id) {
-  return db.prepare('SELECT * FROM crews WHERE id = ?').get(id);
+export function getEmployeeById(id) {
+  return db.prepare('SELECT * FROM employees WHERE id = ?').get(id);
 }
 
-export function getCrewByToken(token) {
-  return db.prepare('SELECT * FROM crews WHERE token = ?').get(token);
+export function getEmployeeByToken(token) {
+  return db.prepare('SELECT * FROM employees WHERE token = ?').get(token);
 }
 
-export function listCrews() {
-  return db.prepare('SELECT id, name, token, created_at FROM crews ORDER BY name').all();
+export function listEmployees() {
+  return db.prepare('SELECT id, name, token, created_at FROM employees ORDER BY name').all();
 }
 
 // ---------- Zones ----------
@@ -259,13 +284,13 @@ export function getZoneBySecret(secret) {
   return db.prepare('SELECT * FROM zones WHERE secret = ?').get(secret);
 }
 
-// Crews that have claimed a single zone, earliest first (used by the claim page).
+// Employees that have claimed a single zone, earliest first (used by the claim page).
 export function getZoneClaimers(zoneId) {
   return db
     .prepare(
-      `SELECT c.crew_id AS id, cr.name AS name, c.created_at AS at
+      `SELECT c.employee_id AS id, emp.name AS name, c.created_at AS at
          FROM claims c
-         JOIN crews cr ON cr.id = c.crew_id
+         JOIN employees emp ON emp.id = c.employee_id
         WHERE c.zone_id = ?
         ORDER BY c.id`
     )
@@ -296,25 +321,25 @@ function groupZoneRows(rows, { includeSecret = false, includePresence = false } 
       }
       byId.set(r.id, zone);
     }
-    if (r.claimed_crew_id) {
-      zone.claimedBy.push({ id: r.claimed_crew_id, name: r.claimed_crew_name, at: r.claimed_at });
+    if (r.claimed_employee_id) {
+      zone.claimedBy.push({ id: r.claimed_employee_id, name: r.claimed_employee_name, at: r.claimed_at });
     }
   }
   return [...byId.values()];
 }
 
 // Public zone list with claim info (never leaks the secret). Each zone can be
-// claimed by multiple crews; claimedBy is an array.
+// claimed by multiple employees; claimedBy is an array.
 export function listZonesPublic() {
   const rows = db
     .prepare(
       `SELECT z.id, z.name, z.hint, z.polygon, z.image_ver, z.require_presence,
-              c.crew_id    AS claimed_crew_id,
-              cr.name      AS claimed_crew_name,
+              c.employee_id AS claimed_employee_id,
+              emp.name      AS claimed_employee_name,
               c.created_at AS claimed_at
          FROM zones z
          LEFT JOIN claims c ON c.zone_id = z.id
-         LEFT JOIN crews cr ON cr.id = c.crew_id
+         LEFT JOIN employees emp ON emp.id = c.employee_id
         ORDER BY z.id, c.created_at`
     )
     .all();
@@ -327,12 +352,12 @@ export function listZonesAdmin() {
     .prepare(
       `SELECT z.id, z.name, z.hint, z.polygon, z.secret, z.image_ver, z.require_presence,
               z.presence_lat, z.presence_lng,
-              c.crew_id    AS claimed_crew_id,
-              cr.name      AS claimed_crew_name,
+              c.employee_id AS claimed_employee_id,
+              emp.name      AS claimed_employee_name,
               c.created_at AS claimed_at
          FROM zones z
          LEFT JOIN claims c ON c.zone_id = z.id
-         LEFT JOIN crews cr ON cr.id = c.crew_id
+         LEFT JOIN employees emp ON emp.id = c.employee_id
         ORDER BY z.id, c.created_at`
     )
     .all();
@@ -340,73 +365,73 @@ export function listZonesAdmin() {
 }
 
 // ---------- Claims ----------
-// Multiple crews may claim the same zone, but each crew only once. INSERT OR
-// IGNORE + the UNIQUE(zone_id, crew_id) constraint makes this idempotent and
+// Multiple employees may claim the same zone, but each employee only once. INSERT OR
+// IGNORE + the UNIQUE(zone_id, employee_id) constraint makes this idempotent and
 // race-proof (no check-then-insert window, no duplicate points). created_at is
 // stamped with millisecond precision (via the column default) so the
 // leaderboard can break ties by who reached their score first.
 // Returns { status, first, points } on a fresh claim, or { status: 'already-yours' }
-// when the crew had already claimed the zone. `first` is true when this crew was
+// when the employee had already claimed the zone. `first` is true when this employee was
 // the first to solve the puzzle (earning the FIRST_BONUS); `points` is the number
 // of points this claim earned.
-export function claimZone(zoneId, crewId) {
+export function claimZone(zoneId, employeeId) {
   const info = db
-    .prepare('INSERT OR IGNORE INTO claims (zone_id, crew_id) VALUES (?, ?)')
-    .run(zoneId, crewId);
+    .prepare('INSERT OR IGNORE INTO claims (zone_id, employee_id) VALUES (?, ?)')
+    .run(zoneId, employeeId);
   if (info.changes === 0) return { status: 'already-yours' };
   // First solver = the earliest-inserted claim. Order by the AUTOINCREMENT id
   // (strict insertion order) rather than created_at: the wall clock isn't
   // guaranteed monotonic between two rapid claims (notably on Windows), so a
   // created_at sort can occasionally mis-credit the bonus to the later claim.
   const firstRow = db
-    .prepare('SELECT crew_id FROM claims WHERE zone_id = ? ORDER BY id LIMIT 1')
+    .prepare('SELECT employee_id FROM claims WHERE zone_id = ? ORDER BY id LIMIT 1')
     .get(zoneId);
-  const first = !!firstRow && firstRow.crew_id === crewId;
+  const first = !!firstRow && firstRow.employee_id === employeeId;
   return { status: 'claimed', first, points: SOLVE_POINTS + (first ? FIRST_BONUS : 0) };
 }
 
-export function unclaimZone(zoneId, crewId) {
+export function unclaimZone(zoneId, employeeId) {
   const info = db
-    .prepare('DELETE FROM claims WHERE zone_id = ? AND crew_id = ?')
-    .run(zoneId, crewId);
+    .prepare('DELETE FROM claims WHERE zone_id = ? AND employee_id = ?')
+    .run(zoneId, employeeId);
   return { removed: info.changes > 0 };
 }
 
 export function leaderboard() {
   // Score = SOLVE_POINTS per puzzle solved + FIRST_BONUS for each puzzle this
-  // crew solved first. Rank by score, then by number of puzzles solved (more
+  // employee solved first. Rank by score, then by number of puzzles solved (more
   // ranks higher), then break remaining ties by whoever reached that score
-  // first: the crew whose most-recent claim (MAX created_at) is earliest ranks
-  // higher. Crews with no claims (NULL) fall to the bottom of the tie.
+  // first: the employee whose most-recent claim (MAX created_at) is earliest ranks
+  // higher. Employees with no claims (NULL) fall to the bottom of the tie.
   return db
     .prepare(
-      `SELECT cr.id, cr.name,
+      `SELECT emp.id, emp.name,
               COUNT(c.id) AS solved,
-              COUNT(c.id) * ${SOLVE_POINTS} + COUNT(f.crew_id) * ${FIRST_BONUS} AS points,
+              COUNT(c.id) * ${SOLVE_POINTS} + COUNT(f.employee_id) * ${FIRST_BONUS} AS points,
               MAX(c.created_at) AS last_claim_at
-         FROM crews cr
-         LEFT JOIN claims c ON c.crew_id = cr.id
+         FROM employees emp
+         LEFT JOIN claims c ON c.employee_id = emp.id
          LEFT JOIN (
-           SELECT c1.zone_id, c1.crew_id
+           SELECT c1.zone_id, c1.employee_id
              FROM claims c1
             WHERE c1.id = (
               SELECT MIN(c2.id) FROM claims c2 WHERE c2.zone_id = c1.zone_id
             )
-         ) f ON f.zone_id = c.zone_id AND f.crew_id = cr.id
-        GROUP BY cr.id
+         ) f ON f.zone_id = c.zone_id AND f.employee_id = emp.id
+        GROUP BY emp.id
         ORDER BY points DESC,
                  solved DESC,
                  (last_claim_at IS NULL) ASC,
                  last_claim_at ASC,
-                 cr.name ASC`
+                 emp.name ASC`
     )
     .all();
 }
 
-// Reset the game. Always clears claims and crews; optionally keeps zones.
+// Reset the game. Always clears claims and employees; optionally keeps zones.
 export function resetGame({ keepZones = true } = {}) {
   db.exec('DELETE FROM claims');
-  db.exec('DELETE FROM crews');
+  db.exec('DELETE FROM employees');
   if (!keepZones) db.exec('DELETE FROM zones');
 }
 

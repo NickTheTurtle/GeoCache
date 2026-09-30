@@ -190,11 +190,11 @@ label {
 }
 .icon-btn:hover { background: var(--brass); color: var(--navy-deep); transform: translateY(-1px); }
 
-/* Crew badge dropdown in the top bar */
-.crew-menu { position: relative; margin-left: 10px; flex: none; max-width: 55%; }
-.crew-menu .badge { cursor: default; display: inline-flex; align-items: center; gap: 6px; }
-.crew-menu.signed-in .badge { cursor: pointer; }
-.crew-menu.signed-in .badge:hover { background: #ffffff26; }
+/* Employee badge dropdown in the top bar */
+.employee-menu { position: relative; margin-left: 10px; flex: none; max-width: 55%; }
+.employee-menu .badge { cursor: default; display: inline-flex; align-items: center; gap: 6px; }
+.employee-menu.signed-in .badge { cursor: pointer; }
+.employee-menu.signed-in .badge:hover { background: #ffffff26; }
 .badge .caret {
   width: 0; height: 0;
   border-left: 4px solid transparent;
@@ -202,7 +202,7 @@ label {
   border-top: 5px solid currentColor;
   opacity: .8;
 }
-.crew-dropdown {
+.employee-dropdown {
   position: absolute; top: calc(100% + 6px); right: 0;
   min-width: 140px; z-index: 1400;
   background: var(--surface); color: var(--ink);
@@ -210,14 +210,14 @@ label {
   box-shadow: 0 8px 22px rgba(11,39,64,.28);
   padding: 6px; overflow: hidden;
 }
-.crew-dropdown button {
+.employee-dropdown button {
   width: 100%; text-align: left;
   padding: 9px 12px; border: none; border-radius: 7px;
   background: none; color: var(--ink);
   font-size: 13px; font-weight: 600; cursor: pointer;
   text-transform: none; letter-spacing: 0;
 }
-.crew-dropdown button:hover { background: var(--brass-wash); }
+.employee-dropdown button:hover { background: var(--brass-wash); }
 
 /* ---------- Layout ---------- */
 .layout { display: flex; height: calc(100% - 59px); }
@@ -291,13 +291,6 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   display: flex !important; align-items: center; justify-content: center;
 }
 .locate-btn.active { background: var(--sea) !important; }
-
-/* Top-right "?" help control */
-.help-ctrl-btn {
-  display: flex !important; align-items: center; justify-content: center;
-  font-family: var(--font-display); font-weight: 700; font-size: 18px;
-  text-decoration: none;
-}
 
 /* Primary "Scan QR" button floating at the bottom of the map */
 .scan-fab {
@@ -668,10 +661,10 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 }
 .checkbox-row input { width: auto; margin: 2px 0 0; flex: 0 0 auto; }
 
-/* Admin: crew list + zone-action helpers (replacing former inline styles) */
+/* Admin: employee list + zone-action helpers (replacing former inline styles) */
 .btn-row { margin-top: 10px; }
-.crew-list { margin-top: 14px; }
-.crew-link { font-size: 12px; word-break: break-all; margin-top: 4px; }
+.employee-list { margin-top: 14px; }
+.employee-link { font-size: 12px; word-break: break-all; margin-top: 4px; }
 .qr-actions { display: flex; flex-direction: column; gap: 6px; }
 .claim-note { font-size: 12px; }
 .card-danger { border-color: var(--signal-red); }
@@ -721,19 +714,6 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   cursor: grab;
 }
 .vtx:active { cursor: grabbing; }
-
-/* Help modal: auto-height, no map, a numbered how-to-play list */
-.help-modal { height: auto; max-height: 88vh; width: min(500px, 100%); }
-.help-list {
-  margin: 14px 0 4px;
-  padding-left: 22px;
-  line-height: 1.6;
-  font-size: 15px;
-  color: var(--ink);
-}
-.help-list li { margin-bottom: 12px; }
-.help-list li::marker { color: var(--brass); font-weight: 700; }
-.help-list strong { color: var(--navy); }
 
 /* "You're inside a zone" cards are tappable to open the hint modal */
 .here-zone {

@@ -95,7 +95,7 @@ export function validPolygon(polygon) {
 }
 
 // Great-circle distance in metres between two lat/lng points. Used to check a
-// crew is near a zone's admin-placed claim spot.
+// employee is near a zone's admin-placed claim spot.
 export function haversineMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;
   const toRad = (d) => (d * Math.PI) / 180;

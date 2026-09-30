@@ -32,16 +32,16 @@ export async function createZone(request, admin, overrides = {}) {
   return res.json();
 }
 
-// Sign a crew in the way the app does: seed localStorage on the app origin.
+// Sign an employee in the way the app does: seed localStorage on the app origin.
 // Must be called after an initial navigation so the origin exists.
-export async function signInAs(page, crew) {
+export async function signInAs(page, employee) {
   await page.addInitScript((c) => {
-    localStorage.setItem('geocache_crew', JSON.stringify({ id: c.id, name: c.name, token: c.token }));
-  }, crew);
+    localStorage.setItem('care_employee', JSON.stringify({ id: c.id, name: c.name, token: c.token }));
+  }, employee);
 }
 
 export async function signOut(page) {
-  await page.addInitScript(() => localStorage.removeItem('geocache_crew'));
+  await page.addInitScript(() => localStorage.removeItem('care_employee'));
 }
 
 // Parse "rgb(a)" / "rgba" into [r,g,b,a].

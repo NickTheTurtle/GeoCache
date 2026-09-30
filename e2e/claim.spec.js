@@ -31,7 +31,7 @@ test.describe('Claim modal (opened from a QR link /?c=<secret>)', () => {
   });
 
   test('invalid secret shows an error state', async ({ page }) => {
-    await signInAs(page, fx.crews.trolls);
+    await signInAs(page, fx.employees.trolls);
     await page.goto('/?c=deadbeefdeadbeef00');
     const modal = claimModal(page);
     await expect(modal).toBeVisible();
@@ -39,8 +39,8 @@ test.describe('Claim modal (opened from a QR link /?c=<secret>)', () => {
     await expectLegible(modal.locator('.err'));
   });
 
-  test('crew that already claimed sees the "already claimed" celebration', async ({ page }) => {
-    await signInAs(page, fx.crews.fog); // fog pre-claimed Beta in setup
+  test('employee that already claimed sees the "already claimed" celebration', async ({ page }) => {
+    await signInAs(page, fx.employees.fog); // fog pre-claimed Beta in setup
     await page.goto(`/?c=${fx.zones.beta.secret}`);
     const modal = claimModal(page);
     await expect(modal).toBeVisible();
@@ -52,8 +52,8 @@ test.describe('Claim modal (opened from a QR link /?c=<secret>)', () => {
     await expectLegible(modal.locator('.success-actions').getByRole('button', { name: 'Close' }));
   });
 
-  test('signed-in crew can claim an unclaimed zone and earn a point', async ({ page }) => {
-    await signInAs(page, fx.crews.trolls);
+  test('signed-in employee can claim an unclaimed zone and earn a point', async ({ page }) => {
+    await signInAs(page, fx.employees.trolls);
     await page.goto(`/?c=${freshZone.secret}`);
     const modal = claimModal(page);
     await expect(modal).toBeVisible();
@@ -77,7 +77,7 @@ test.describe('Claim modal (opened from a QR link /?c=<secret>)', () => {
   });
 
   test('re-visiting an already-claimed zone shows the already state (no double claim)', async ({ page }) => {
-    await signInAs(page, fx.crews.trolls); // trolls claimed freshZone in the previous test
+    await signInAs(page, fx.employees.trolls); // trolls claimed freshZone in the previous test
     await page.goto(`/?c=${freshZone.secret}`);
     const modal = claimModal(page);
     await expect(modal).toBeVisible();
@@ -85,7 +85,7 @@ test.describe('Claim modal (opened from a QR link /?c=<secret>)', () => {
   });
 
   test('closing the modal strips ?c= from the URL', async ({ page }) => {
-    await signInAs(page, fx.crews.trolls);
+    await signInAs(page, fx.employees.trolls);
     await page.goto(`/?c=${fx.zones.beta.secret}`);
     const modal = claimModal(page);
     await expect(modal).toBeVisible();
@@ -95,7 +95,7 @@ test.describe('Claim modal (opened from a QR link /?c=<secret>)', () => {
   });
 
   test('Escape key closes the claim modal', async ({ page }) => {
-    await signInAs(page, fx.crews.trolls);
+    await signInAs(page, fx.employees.trolls);
     // Hold the page mid-startup (it loads the leaderboard last) so Escape is
     // pressed before loading finishes, as on a slow connection.
     await page.route('**/api/leaderboard', async (route) => {
@@ -112,7 +112,7 @@ test.describe('Claim modal (opened from a QR link /?c=<secret>)', () => {
 
 test.describe('Old /claim links', () => {
   test('/claim?c=<secret> redirects to /?c=<secret> and pops the modal', async ({ page }) => {
-    await signInAs(page, fx.crews.trolls);
+    await signInAs(page, fx.employees.trolls);
     await page.goto(`/claim?c=${fx.zones.beta.secret}`);
     await expect(page).toHaveURL(new RegExp(`/\\?c=${fx.zones.beta.secret}`));
     await expect(claimModal(page)).toBeVisible();

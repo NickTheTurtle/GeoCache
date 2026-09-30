@@ -43,7 +43,7 @@ test.describe('Main map page', () => {
     }
   });
 
-  test('leaderboard lists seeded crews with points', async ({ page }) => {
+  test('leaderboard lists seeded employees with points', async ({ page }) => {
     await page.goto('/');
     const board = await openLeaderboard(page);
     await expect(board).toBeVisible();
@@ -79,9 +79,9 @@ test.describe('Main map page', () => {
     await expect(page.locator('.popup-hint')).toBeHidden();
   });
 
-  test('adopting a crew via ?g=<token> signs in and strips the token from the URL', async ({ page }) => {
-    await page.goto(`/?g=${fx.crews.trolls.token}`);
-    const badge = page.locator('.crew-menu .badge');
+  test('adopting an employee via ?g=<token> signs in and strips the token from the URL', async ({ page }) => {
+    await page.goto(`/?g=${fx.employees.trolls.token}`);
+    const badge = page.locator('.employee-menu .badge');
     await expect(badge).toContainText('Bridge Trolls');
     await expectLegible(badge);
     // Token removed from the address bar.
@@ -89,8 +89,27 @@ test.describe('Main map page', () => {
     expect(new URL(page.url()).searchParams.get('g')).toBeNull();
   });
 
+  test('someone signed in before the rename to "employee" stays signed in', async ({ page }) => {
+    const e = fx.employees.fog;
+    // The sign-in was saved under the old key; it's picked up and moved over.
+    await page.addInitScript((c) => {
+      if (!sessionStorage.getItem('seeded')) {
+        localStorage.removeItem('care_employee');
+        localStorage.setItem('geocache_crew', JSON.stringify({ id: c.id, name: c.name, token: c.token }));
+        sessionStorage.setItem('seeded', '1');
+      }
+    }, e);
+    await page.goto('/');
+    await expect(page.locator('.employee-menu .badge')).toContainText(e.name);
+    const stored = await page.evaluate(() => [localStorage.getItem('care_employee'), localStorage.getItem('geocache_crew')]);
+    expect(JSON.parse(stored[0]).token).toBe(e.token);
+    expect(stored[1]).toBeNull();
+    await page.reload(); // still signed in from the new key alone
+    await expect(page.locator('.employee-menu .badge')).toContainText(e.name);
+  });
+
   test('scanner modal shows a themed placeholder (not a blank box) when no camera', async ({ page }) => {
-    await signInAs(page, fx.crews.trolls);
+    await signInAs(page, fx.employees.trolls);
     await page.goto('/');
     await page.locator('.scan-fab').click();
     const modal = page.locator('.modal.admin-modal', { hasText: 'Scan a QR code' });
@@ -102,15 +121,11 @@ test.describe('Main map page', () => {
     await expect(modal.getByRole('button', { name: 'Try again' })).toBeVisible();
   });
 
-  test('help modal is reachable and legible', async ({ page }) => {
+  test('there is no How to play button or popup', async ({ page }) => {
     await page.goto('/');
-    // The "?" help control on the map.
-    const help = page.locator('button[aria-label*="help" i], .help-fab, [title*="help" i]');
-    // Fallback: some builds put help behind a fixed button; open via keyboard flow if present.
-    if (await help.first().isVisible().catch(() => false)) {
-      await help.first().click();
-      await expect(page.locator('.help-modal')).toBeVisible();
-      await expectLegible(page.locator('.help-modal .help-list li').first());
-    }
+    await expect(page.locator('.leaflet-container')).toBeVisible();
+    await expect(page.getByRole('button', { name: /how to play/i })).toHaveCount(0);
+    await expect(page.locator('.help-modal, .help-ctrl-btn')).toHaveCount(0);
+    await expect(page.getByText('How to play')).toHaveCount(0);
   });
 });

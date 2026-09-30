@@ -46,7 +46,7 @@ test.describe('Mobile layout', () => {
   });
 
   test('claim modal fits the viewport width on mobile', async ({ page }) => {
-    await signInAs(page, fx.crews.trolls);
+    await signInAs(page, fx.employees.trolls);
     await page.goto(`/?c=${fx.zones.beta.secret}`);
     const modal = page.locator('.modal.admin-modal').last();
     await expect(modal).toBeVisible();

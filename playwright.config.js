@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 // E2E runs against an isolated instance of the production server:
 //   - its own DATA_DIR (throwaway SQLite db) so tests never touch real data
 //   - its own ports (8443 https / 8080 http) so it can run alongside a dev server
-//   - a known ADMIN_PASSWORD so the suite can seed crews/zones via the API
+//   - a known ADMIN_PASSWORD so the suite can seed employees/zones via the API
 // The browser is the locally-installed Microsoft Edge (channel: 'msedge'), so
 // no Chromium download is required.
 const HTTPS_PORT = 8443;

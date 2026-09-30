@@ -8,7 +8,7 @@ test('escapeHtml escapes all HTML-sensitive characters', () => {
   assert.equal(escapeHtml(123), '123'); // coerces non-strings
 });
 
-test("zoneStyle highlights only the current crew's claimed zones", () => {
+test("zoneStyle highlights only the current employee's claimed zones", () => {
   const zone = { claimedBy: [{ id: 7, name: 'S&V' }] };
 
   const mine = zoneStyle(zone, { id: 7 });
