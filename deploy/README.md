@@ -93,7 +93,7 @@ from the **admin** page (`/admin`) already encode the correct public link.
 
 ## 6. The Heist (`/heist72`)
 
-`https://<your-domain>/heist72` shows Flabber Gast's note; `/heist` is gone (404).
+`https://<your-domain>/heist72` shows Flabber Geese's note; `/heist` is gone (404).
 The maze that used to be at `/heist72` lives only in the
 Wayback Machine now; its code and prize image are no longer part of the app, and
 deploying deletes them from `/opt/geocache`. Nothing to configure.

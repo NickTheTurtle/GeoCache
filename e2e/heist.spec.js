@@ -18,12 +18,13 @@ test.describe('Heist note (JavaScript disabled)', () => {
       await expect(note.locator('.to')).toHaveText('Dear idiots,');
       await expect(note).toContainText('I TOLD you to be on time.');
       await expect(note).toContainText('Use that machine and come back here ON TIME.');
-      await expect(note.locator('.sig')).toContainText('Flabber Gast');
-      await expect(note.locator('.sig')).toContainText('September 28th');
+      await expect(note.locator('.sig strong')).toHaveText('Flabber Geese');
+      await expect(note.locator('.sig span')).toHaveText('September 29th');
+      await expect(note).not.toContainText('Flabber Gast');
 
       // None of the maze is left on the live page.
       await expect(page.locator('.pad, .g, .win, .say, img, [role="timer"]')).toHaveCount(0);
-      expect(await page.content()).not.toMatch(/Claim Reward|Target acquired|Flabber Geese|data:image/);
+      expect(await page.content()).not.toMatch(/Claim Reward|Target acquired|stole their router|Grab the target|data:image/);
     }
   });
 
