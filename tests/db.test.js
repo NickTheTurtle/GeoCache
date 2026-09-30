@@ -138,28 +138,63 @@ test('deleteZone removes the zone and its claims', () => {
   assert.equal(db.leaderboard().find((r) => r.id === g.id).points, 0); // claim gone too
 });
 
-test('exportZones / importZones round-trips zones and mints fresh secrets', () => {
+test('exportZones includes each secret, and a replace re-import keeps every QR code working', () => {
   db.resetGame({ keepZones: false });
   const a = db.createZone({ name: 'Exp A', hint: 'hint a', polygon: POLY });
-  db.createZone({ name: 'Exp B', hint: '', polygon: POLY });
+  const b = db.createZone({ name: 'Exp B', hint: '', polygon: POLY });
 
   const dump = db.exportZones();
   assert.equal(dump.length, 2);
-  assert.deepEqual(dump[0], { name: 'Exp A', hint: 'hint a', polygon: POLY }); // no secret leaked
-  assert.equal('secret' in dump[0], false);
+  assert.deepEqual(dump[0], { name: 'Exp A', hint: 'hint a', polygon: POLY, secret: a.secret });
+  assert.equal(dump[1].secret, b.secret);
 
-  // Re-import with replace: old zones cleared, new ones created with new secrets.
-  const oldSecret = db.getZoneById(a.id).secret;
-  const count = db.importZones(
-    dump.map((z) => ({ ...z, polygon: z.polygon })),
-    { replace: true }
+  // Round-trip through JSON, as the downloaded file does, then replace-import.
+  const file = JSON.parse(JSON.stringify({ zones: dump }));
+  assert.equal(db.importZones(file.zones, { replace: true }), 2);
+  assert.equal(db.getZoneById(a.id), undefined); // old rows were replaced...
+  for (const [old, name] of [[a, 'Exp A'], [b, 'Exp B']]) {
+    const now = db.getZoneBySecret(old.secret); // ...but each QR code still resolves
+    assert.ok(now, `${name}'s QR secret survives the re-import`);
+    assert.equal(now.name, name);
+    assert.notEqual(now.id, old.id);
+  }
+  assert.deepEqual(db.listZonesAdmin().map((z) => z.secret).sort(), [a.secret, b.secret].sort());
+});
+
+test('importZones mints a fresh secret for zones without one', () => {
+  db.resetGame({ keepZones: false });
+  db.importZones([{ name: 'No secret', hint: '', polygon: POLY }], { replace: true });
+  const [z] = db.listZonesAdmin();
+  assert.match(z.secret, /^[A-Za-z0-9_-]{16}$/);
+  assert.equal(db.getZoneBySecret(z.secret).name, 'No secret');
+});
+
+test('appending a zone whose secret is already in use is rejected and rolled back', () => {
+  db.resetGame({ keepZones: false });
+  const keep = db.createZone({ name: 'Keep', hint: '', polygon: POLY });
+  assert.throws(
+    () =>
+      db.importZones(
+        [
+          { name: 'Fresh', hint: '', polygon: POLY, secret: 'brandNewSecret123' },
+          { name: 'Clash', hint: '', polygon: POLY, secret: keep.secret },
+        ],
+        { replace: false }
+      ),
+    (e) => e instanceof db.SecretTakenError && /Zone #2 \("Clash"\).*"Keep"/.test(e.message)
   );
-  assert.equal(count, 2);
-  const after = db.listZonesAdmin();
-  assert.equal(after.length, 2);
-  assert.deepEqual(after.map((z) => z.name).sort(), ['Exp A', 'Exp B']);
-  assert.equal(db.getZoneById(a.id), undefined); // old row replaced
-  assert.equal(db.getZoneBySecret(oldSecret), undefined); // fresh secret minted
+  // All-or-nothing: the first zone wasn't added either, and "Keep" still owns its QR.
+  assert.deepEqual(db.listZonesAdmin().map((z) => z.name), ['Keep']);
+  assert.equal(db.getZoneBySecret('brandNewSecret123'), undefined);
+  assert.equal(db.getZoneBySecret(keep.secret).id, keep.id);
+});
+
+test('importZones reuses a given secret when appending, too', () => {
+  db.resetGame({ keepZones: false });
+  db.createZone({ name: 'Existing', hint: '', polygon: POLY });
+  db.importZones([{ name: 'Custom', hint: '', polygon: POLY, secret: 'XQJCGx_vUTJF-6Ec' }], { replace: false });
+  assert.equal(db.getZoneBySecret('XQJCGx_vUTJF-6Ec').name, 'Custom');
+  assert.equal(db.listZonesAdmin().length, 2);
 });
 
 test('importZones without replace appends to existing zones', () => {

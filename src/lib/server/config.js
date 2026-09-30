@@ -75,6 +75,13 @@ export function resolvePresence(body) {
   return { presenceLat, presenceLng };
 }
 
+// A zone QR secret supplied in an import file. Generated secrets are 16
+// URL-safe base64 characters; accept 8-64 of the same alphabet so the value is
+// safe in a ?c= claim URL, readable by the QR scanner, and not trivially short.
+export function validSecret(secret) {
+  return typeof secret === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(secret);
+}
+
 export function validPolygon(polygon) {
   if (!Array.isArray(polygon) || polygon.length < 3) return false;
   return polygon.every(

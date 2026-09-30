@@ -73,10 +73,14 @@ The admin console can import/export zones as JSON, which is handy for generating
 map at once (e.g. with an AI assistant).
 
 - **Export** downloads `care-zones.json` (a re-importable backup; hint images
-  included as base64).
+  included as base64, plus each zone's QR `secret`).
 - **Import** loads a file. Tick **Replace existing zones** to swap the whole map;
-  leave it unticked to append. Fresh QR secrets are minted, and each polygon must
-  have 3+ points inside SF or the whole import is rejected.
+  leave it unticked to append. A zone's `secret`, when present, is reused, so
+  re-importing an export keeps every existing QR code working. Zones without
+  one get a fresh QR code. Appending a zone whose secret already belongs to an
+  existing zone is rejected (tick Replace, or remove the `secret`). Each polygon
+  must have 3+ points inside SF, or the whole import is rejected. Replacing still
+  clears all claims and points, since those aren't in the file.
 
 Format (see [`zones.example.json`](./zones.example.json)):
 

@@ -118,8 +118,11 @@ export function createZone({
   requirePresence = false,
   presenceLat = null,
   presenceLng = null,
+  secret = null,
 }) {
-  const secret = newToken(12);
+  // Reuse a given secret (e.g. from an exported file) so existing QR codes keep
+  // working; otherwise mint a fresh one.
+  secret = secret || newToken(12);
   const hasImg = image && imageType;
   const rp = requirePresence ? 1 : 0;
   const pLat = rp && Number.isFinite(presenceLat) ? presenceLat : null;
@@ -186,13 +189,14 @@ export function deleteZone(id) {
 
 // ---------- Bulk import / export ----------
 // Export every zone in the portable, re-importable shape the import endpoint
-// accepts. Secrets are omitted, since fresh ones are minted on import.
+// accepts, including each zone's QR secret so a re-import keeps existing QR
+// codes working.
 export function exportZones() {
   const rows = db
-    .prepare('SELECT name, hint, polygon, image, image_type, require_presence, presence_lat, presence_lng FROM zones ORDER BY id')
+    .prepare('SELECT name, hint, polygon, secret, image, image_type, require_presence, presence_lat, presence_lng FROM zones ORDER BY id')
     .all();
   return rows.map((r) => {
-    const zone = { name: r.name, hint: r.hint, polygon: JSON.parse(r.polygon) };
+    const zone = { name: r.name, hint: r.hint, polygon: JSON.parse(r.polygon), secret: r.secret };
     if (r.require_presence) {
       zone.requirePresence = true;
       zone.presenceLat = r.presence_lat;
@@ -205,13 +209,27 @@ export function exportZones() {
   });
 }
 
+// Thrown when an imported zone's secret already belongs to a zone that is being
+// kept (an append import), since two zones can't share a QR code.
+export class SecretTakenError extends Error {}
+
 // Insert pre-validated zones in one transaction (all-or-nothing). When replace
 // is true, existing zones (and their claims, via cascade) are cleared first.
+// A zone's `secret`, if given, is reused so its QR code keeps working.
 export function importZones(zones, { replace = false } = {}) {
   db.exec('BEGIN');
   try {
     if (replace) db.exec('DELETE FROM zones');
-    for (const z of zones) createZone(z);
+    zones.forEach((z, i) => {
+      const taken = z.secret && getZoneBySecret(z.secret);
+      if (taken) {
+        throw new SecretTakenError(
+          `Zone #${i + 1} ("${z.name}"): its QR secret already belongs to the zone "${taken.name}". ` +
+            'Tick "Replace existing zones", or remove its "secret" to give it a new QR code.'
+        );
+      }
+      createZone(z);
+    });
     db.exec('COMMIT');
   } catch (e) {
     db.exec('ROLLBACK');
