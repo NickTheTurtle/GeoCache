@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import tls from 'node:tls';
 import { expect } from '@playwright/test';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -116,4 +117,25 @@ export async function expectLegible(locator, minRatio = 3) {
     ratio,
     `text "${info.text.slice(0, 40)}" contrast ${ratio.toFixed(2)} (color=rgba(${info.color}) effBg=rgb(${bg.map((n) => Math.round(n))})) should be >= ${minRatio}`
   ).toBeGreaterThanOrEqual(minRatio);
+}
+
+// Send a request's headers now but hold its body until `between()` has finished,
+// like a phone on a slow uplink. HTTP clients (fetch, Playwright) buffer small
+// bodies, so this uses a raw TLS socket to open the window a race needs.
+// Resolves to the HTTP status code.
+export async function slowBodyRequest(baseURL, method, pathname, headers, body, between) {
+  const { hostname, port } = new URL(baseURL);
+  const payload = JSON.stringify(body);
+  const sock = tls.connect({ host: hostname, port: Number(port), rejectUnauthorized: false });
+  await new Promise((resolve, reject) => { sock.once('secureConnect', resolve); sock.once('error', reject); });
+  let raw = '';
+  sock.on('data', (d) => (raw += d));
+  const head = Object.entries({ ...headers, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) })
+    .map(([k, v]) => `${k}: ${v}\r\n`).join('');
+  sock.write(`${method} ${pathname} HTTP/1.1\r\nHost: ${hostname}\r\nConnection: close\r\n${head}\r\n`);
+  await new Promise((r) => setTimeout(r, 150)); // the server has started handling it by now
+  await between();
+  sock.write(payload);
+  await new Promise((r) => sock.on('close', r));
+  return Number(raw.split(' ')[1]);
 }

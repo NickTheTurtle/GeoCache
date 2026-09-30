@@ -62,6 +62,15 @@
   });
   onDestroy(unsub);
 
+  // A phone can outlive its employee (deleted by an admin, or a game reset). Only a
+  // definite "not found" signs it out; a network hiccup leaves it signed in.
+  async function verifyEmployee() {
+    const e = currentEmployee;
+    if (!e) return;
+    const res = await fetch(`/api/employees/${encodeURIComponent(e.token)}`).catch(() => null);
+    if (res?.status === 404 && currentEmployee?.token === e.token) employee.set(null);
+  }
+
   function signOut() {
     menuOpen = false;
     if (location.search) history.replaceState(null, '', location.pathname);
@@ -235,9 +244,8 @@
     try {
       const { res, data } = await claimZoneBySecret(secret);
       if (res.ok && data.status === 'claimed') {
-        celebrate(`Claimed ${data.zone.name} for ${currentEmployee.name}! ${formatDelta(data.points)} pts${data.first ? '. First to solve!' : ''}.`);
-        loadZones();
-        loadLeaderboard();
+        celebrate(`Claimed ${data.zone.name} for ${currentEmployee.name}! ${formatDelta(data.points)} pts${data.first ? '. First to solve!' : '.'}`);
+        refreshBoard();
       } else if (data.status === 'already-yours') {
         celebrate(`You already claimed ${data.zone.name}.`, false);
       } else if (data.status === 'too-far') {
@@ -249,7 +257,10 @@
         scanMsgClass = 'err';
         scanErr = true;
       } else {
-        scanMsg = data.message || 'Could not claim this zone.';
+        await verifyEmployee(); // "Unknown employee": this phone's employee was removed
+        scanMsg = currentEmployee
+          ? data.message || 'Could not claim this zone.'
+          : 'Open your personal link first, then scan to claim.';
         scanMsgClass = 'err';
         scanErr = true;
       }
@@ -339,6 +350,8 @@
   }
 
   // ---------- Leaderboard ----------
+  // Refresh the map and leaderboard after a claim; the 15s poll retries on failure.
+  const refreshBoard = () => Promise.all([loadZones(), loadLeaderboard()]).catch(() => {});
   async function loadLeaderboard() {
     leaders = await getJson('/api/leaderboard');
   }
@@ -404,8 +417,7 @@
         claimPoints = data.points;
         claimFirst = data.first;
         claimView = 'claimed';
-        loadZones();
-        loadLeaderboard();
+        refreshBoard();
       } else if (data.status === 'already-yours') {
         claimView = 'already';
       } else if (data.status === 'too-far') {
@@ -415,7 +427,9 @@
         claimErrMsg = 'This zone can only be claimed on-site. Turn on location access and try again.';
         claiming = false;
       } else {
-        claimErrMsg = data.message || 'Could not claim this zone.';
+        await verifyEmployee(); // "Unknown employee": this phone's employee was removed
+        if (currentEmployee) claimErrMsg = data.message || 'Could not claim this zone.';
+        else claimView = 'signin';
         claiming = false;
       }
     } catch {
@@ -434,8 +448,10 @@
     // should close it without waiting for the map and zones to load.
     window.addEventListener('keydown', onKeydown);
     window.addEventListener('click', onDocClick);
-    const claimParam = new URLSearchParams(location.search).get('c');
-    await adoptEmployeeFromUrl();
+    const params = new URLSearchParams(location.search);
+    const claimParam = params.get('c');
+    if (params.has('g')) await adoptEmployeeFromUrl();
+    else await verifyEmployee(); // before the claim popup decides what to offer
     if (claimParam) openClaim(claimParam); // pop the claim modal (parallel with map init)
     L = await loadLeaflet();
 
@@ -465,11 +481,12 @@
     // Re-apply after layout settles (mobile browsers finalize viewport height late).
     setTimeout(applyStart, 300);
     await loadLeaderboard();
-    stopPolling = poll(() => Promise.all([loadZones(), loadLeaderboard()]), 15000);
+    stopPolling = poll(() => Promise.all([loadZones(), loadLeaderboard(), verifyEmployee()]), 15000);
   });
 
   onDestroy(() => {
     stopPolling?.();
+    stopScanner();
     if (map) map.stopLocate(); // stop the geolocation watch started by toggleLocate
     if (typeof window !== 'undefined') {
       window.removeEventListener('keydown', onKeydown);
@@ -627,7 +644,7 @@
           </div>
         </Celebration>
       {:else if claimView === 'claimed'}
-        <Celebration text={`Claimed ${claimZoneName} for ${currentEmployee?.name}! ${formatDelta(claimPoints)} pts${claimFirst ? '. First to solve!' : ''}.`}>
+        <Celebration text={`Claimed ${claimZoneName} for ${currentEmployee?.name}! ${formatDelta(claimPoints)} pts${claimFirst ? '. First to solve!' : '.'}`}>
           <div class="success-actions">
             <button onclick={() => { closeClaim(); setTab('board'); }}>See leaderboard</button>
             <button class="ghost" onclick={closeClaim}>Close</button>

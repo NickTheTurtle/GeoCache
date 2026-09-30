@@ -67,6 +67,7 @@ test.describe('Claim modal (opened from a QR link /?c=<secret>)', () => {
     await expect(modal).toContainText(`Claimed ${freshZone.name}`);
     await expect(modal).toContainText('Bridge Trolls');
     await expectLegible(modal.locator('.success-text, .modal-body h2').first());
+    await expect(modal.locator('.success-text')).toHaveText(/pts(\. First to solve!|\.)$/); // no "!."
 
     // Leaderboard should now credit Bridge Trolls with at least one point.
     await modal.getByRole('button', { name: 'See leaderboard' }).click();
@@ -107,5 +108,30 @@ test.describe('Claim modal (opened from a QR link /?c=<secret>)', () => {
     await expect(modal).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(modal).toBeHidden({ timeout: 2000 });
+  });
+});
+
+test.describe('A phone whose employee was removed', () => {
+  // 4 phones share one personal link; an admin deleting that employee (or resetting
+  // the game) must sign all of them out, not leave them offering claims that fail.
+  test('signs itself out and asks for a personal link instead of failing a claim', async ({ page, request }) => {
+    const H = { 'x-admin-password': fx.admin };
+    const emp = await (await request.post('/api/employees', { headers: H, data: { name: `Gone ${Date.now()}` } })).json();
+    await page.goto(`/?g=${emp.token}`);
+    await expect(page.locator('.employee-menu')).toContainText(emp.name);
+
+    // Deleted while this phone has the claim popup open, ready to claim.
+    await page.goto(`/?c=${freshZone.secret}`);
+    const modal = claimModal(page);
+    const claimBtn = modal.getByRole('button', { name: 'Claim this zone' });
+    await expect(claimBtn).toBeVisible();
+    await request.delete(`/api/admin/employees/${emp.id}`, { headers: H });
+    await claimBtn.click();
+    await expect(modal).toContainText('open the personal link');
+    await expect(page.locator('.employee-menu')).toHaveCount(0);
+
+    // Opening the app again later: signed out straight away.
+    await page.goto(`/?c=${fx.zones.alpha.secret}`);
+    await expect(claimModal(page)).toContainText('open the personal link');
   });
 });

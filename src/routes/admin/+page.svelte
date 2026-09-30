@@ -225,8 +225,17 @@
   }
 
   // ---------- Employees ----------
+  // Stepper taps show before the server confirms them. A list fetched while a tap
+  // was saving doesn't include that tap, so it mustn't replace the on-screen
+  // numbers; one refresh runs once every tap has saved.
+  let tapsSaving = 0;
+  let tapEpoch = 0;
+  function applyEmployees(list, epochAtFetch) {
+    if (tapsSaving === 0 && epochAtFetch === tapEpoch) employees = list;
+  }
   async function loadEmployees() {
-    employees = await getJson('/api/employees', { headers: authHeaders() });
+    const epoch = tapEpoch;
+    applyEmployees(await getJson('/api/employees', { headers: authHeaders() }), epoch);
   }
 
   async function createEmployeeAdmin() {
@@ -242,7 +251,7 @@
     if (!res.ok) { grpErr = data.message || 'Failed to create employee.'; return; }
     grpName = '';
     toast('Employee created');
-    loadEmployees();
+    loadEmployees().catch(() => {});
   }
 
   function copyEmployeeLink(token) {
@@ -267,24 +276,31 @@
   async function adjustEmployeePoints(e, delta) {
     e.points += delta;
     e.adjustment += delta;
+    tapEpoch++;
+    tapsSaving++;
     const res = await fetch(`/api/admin/employees/${e.id}/points`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ delta }),
     }).catch(() => null);
-    if (res?.ok) return;
-    const data = await res?.json().catch(() => ({}));
-    toast(data?.message || 'Could not adjust points');
-    loadEmployees(); // resync with the server's total
+    tapsSaving--;
+    if (!res?.ok) {
+      const data = await res?.json().catch(() => ({}));
+      toast(data?.message || 'Could not adjust points');
+    }
+    // Sync with the server once the last tap has saved (picks up failures and
+    // other admins' taps).
+    if (tapsSaving === 0) loadEmployees().catch(() => {});
   }
 
   // ---------- Zones ----------
   async function loadZones() {
+    const epoch = tapEpoch;
     const [zList, cList] = await Promise.all([
       getJson('/api/admin/zones', { headers: authHeaders() }),
       getJson('/api/employees', { headers: authHeaders() }),
     ]);
-    employees = cList;
+    applyEmployees(cList, epoch);
     zones = zList;
 
     // Diff the saved-zone layers instead of wiping them, so the 15s poll

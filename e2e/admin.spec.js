@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { fixture, expectLegible } from './helpers.js';
+import { fixture, expectLegible, slowBodyRequest, createZone } from './helpers.js';
 
 const fx = fixture();
 
@@ -155,6 +155,37 @@ test.describe('Admin console', () => {
   });
 });
 
+test.describe('Admin stepper under concurrency', () => {
+  test('a refresh that lands while a tap is saving doesn\u2019t wipe the tap', async ({ page, request }) => {
+    const H = { 'x-admin-password': fx.admin };
+    const name = `Stepper ${Date.now()}`;
+    await request.post('/api/employees', { headers: H, data: { name } });
+    await page.goto('/admin');
+    await page.locator('#pw').fill(fx.admin);
+    await page.getByRole('button', { name: 'Log in' }).click();
+    await page.getByRole('tab', { name: 'Employees' }).click();
+    const card = page.locator('.zone-item', { hasText: name });
+    await expect(card.locator('.stepper-value')).toHaveText('0 pts');
+
+    // The save is slow (a phone on a bad connection)...
+    let release;
+    const held = new Promise((r) => (release = r));
+    await page.route('**/api/admin/employees/*/points', async (route) => { await held; await route.continue(); });
+    await card.getByRole('button', { name: `Add a point for ${name}` }).click();
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*1 pts\s*\(\+1\)\s*$/);
+
+    // ...and meanwhile the employee list refreshes (here: creating another employee).
+    await page.locator('#grpName').fill(`Other ${Date.now()}`);
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
+    await expect(page.locator('.toast', { hasText: 'Employee created' })).toBeVisible();
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*1 pts\s*\(\+1\)\s*$/); // not back to 0
+
+    release();
+    await expect.poll(async () => (await (await request.get('/api/employees', { headers: H })).json()).find((e) => e.name === name)?.points).toBe(1);
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*1 pts\s*\(\+1\)\s*$/);
+  });
+});
+
 test.describe('Employee admin API', () => {
   test('points and delete endpoints need the admin password and validate input', async ({ request }) => {
     const headers = { 'x-admin-password': fx.admin };
@@ -173,6 +204,37 @@ test.describe('Employee admin API', () => {
     expect((await request.delete(`/api/admin/employees/${e.id}`, { headers })).status()).toBe(200);
     expect((await request.delete(`/api/admin/employees/${e.id}`, { headers })).status()).toBe(404);
     expect((await request.post(`/api/admin/employees/${e.id}/points`, { headers, data: { delta: 1 } })).status()).toBe(404);
+  });
+});
+
+test.describe('Admin writes racing a delete', () => {
+  // Each request's body is still uploading when the employee or zone it targets is
+  // deleted (or the game is reset). The server must answer 404, never crash with a 500.
+  const H = { 'x-admin-password': fx.admin };
+  const newEmployee = async (request) =>
+    (await request.post('/api/employees', { headers: H, data: { name: `Race ${Date.now()}` } })).json();
+
+  test('point tap vs employee delete', async ({ request, baseURL }) => {
+    const e = await newEmployee(request);
+    const status = await slowBodyRequest(baseURL, 'POST', `/api/admin/employees/${e.id}/points`, H, { delta: 1 },
+      () => request.delete(`/api/admin/employees/${e.id}`, { headers: H }));
+    expect(status).toBe(404);
+  });
+
+  test('manual claim vs zone delete', async ({ request, baseURL }) => {
+    const e = await newEmployee(request);
+    const z = await createZone(request, fx.admin);
+    const status = await slowBodyRequest(baseURL, 'POST', `/api/admin/zones/${z.id}/claim`, H, { employeeId: e.id },
+      () => request.delete(`/api/admin/zones/${z.id}`, { headers: H }));
+    expect(status).toBe(404);
+  });
+
+  test('zone edit vs zone delete', async ({ request, baseURL }) => {
+    const z = await createZone(request, fx.admin);
+    const status = await slowBodyRequest(baseURL, 'PUT', `/api/admin/zones/${z.id}`, H,
+      { name: 'Edited', hint: '', polygon: z.polygon },
+      () => request.delete(`/api/admin/zones/${z.id}`, { headers: H }));
+    expect(status).toBe(404);
   });
 });
 

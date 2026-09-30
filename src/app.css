@@ -21,6 +21,7 @@
   --signal-red: #b23a3a;   /* claimed / danger */
   --success: #2f7a4a;      /* claimed check / positive adjustment */
   --navy-hover: #17456e;
+  --on-dark: #f4ead0;       /* text on navy (buttons, top bar, toasts, tooltips) */
 
   --font-display: 'Cinzel', Georgia, serif;
   --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -60,7 +61,7 @@ button, a.button {
   text-transform: uppercase;
   letter-spacing: .1em;
   background: var(--navy);
-  color: #f6f1e3;
+  color: var(--on-dark);
   transition: background .12s ease, transform .05s ease;
 }
 a.button { display: inline-block; line-height: normal; text-decoration: none; }
@@ -79,7 +80,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 /* Buttons sitting on the dark top bar need light text to stay visible */
 .topbar button.secondary {
   background: #ffffff14;
-  color: #f4ead0;
+  color: var(--on-dark);
   border: 1px solid var(--brass);
 }
 .topbar button.secondary:hover { background: var(--brass); color: var(--navy-deep); }
@@ -127,7 +128,7 @@ label {
   padding: 8px 16px;
   background: var(--navy-deep);
   border-bottom: 2px solid var(--brass);
-  color: #eaf0f5;
+  color: var(--on-dark);
 }
 .brand { display: flex; flex-direction: column; line-height: 1; min-width: 0; }
 .topbar h1 {
@@ -136,7 +137,7 @@ label {
   font-size: 26px;
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: #f4ead0;
+  color: var(--on-dark);
   margin: 0;
   display: flex;
   align-items: center;
@@ -240,7 +241,7 @@ a.badge:hover { background: #ffffff26; }
 }
 .tab.active {
   background: var(--navy);
-  color: #f4ead0;
+  color: var(--on-dark);
   border-color: var(--navy);
 }
 
@@ -299,7 +300,7 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   width: 100%;
   border-radius: 12px;
   overflow: hidden;
-  background: #0b2740;
+  background: var(--navy-deep);
   min-height: 240px;
 }
 .scan-reader video { display: block; width: 100% !important; height: auto !important; }
@@ -404,7 +405,7 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 }
 .leaflet-tooltip {
   background: var(--navy-deep);
-  color: #eaf0f5;
+  color: var(--on-dark);
   border: 1px solid var(--brass);
   border-radius: 8px;
   box-shadow: 0 4px 14px rgba(15,42,68,.35);
@@ -501,7 +502,7 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   border: 1px solid var(--edge-strong);
 }
 .admin-tab.active {
-  background: var(--navy); color: #f4ead0; border-color: var(--navy);
+  background: var(--navy); color: var(--on-dark); border-color: var(--navy);
 }
 .zone-item {
   padding: 12px; border: 1px solid var(--edge); border-radius: 10px;
@@ -521,7 +522,7 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 .zone-item button, .zone-item a.button { padding: 7px 11px; font-size: 11px; }
 .toast {
   position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-  background: var(--navy-deep); border: 1px solid var(--brass); color: #eaf0f5;
+  background: var(--navy-deep); border: 1px solid var(--brass); color: var(--on-dark);
   padding: 12px 20px; border-radius: 10px; z-index: 9999;
   font-size: 12px; font-weight: 600; letter-spacing: .04em;
   box-shadow: 0 8px 30px rgba(15,42,68,.4);

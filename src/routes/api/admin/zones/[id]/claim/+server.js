@@ -6,8 +6,10 @@ import { requireAdmin } from '$lib/server/config.js';
 export async function POST({ request, url, params }) {
   requireAdmin(request, url);
   const id = Number(params.id);
-  if (!db.getZoneById(id)) throw error(404, 'Zone not found');
   const body = await request.json().catch(() => ({}));
+  // Read the body before checking the zone and employee exists: SQLite calls are synchronous, so
+  // nothing (like a delete) can run between the check and the write below.
+  if (!db.getZoneById(id)) throw error(404, 'Zone not found');
   const employee = db.getEmployeeById(Number(body.employeeId));
   if (!employee) throw error(400, 'Unknown employee');
   const result = db.claimZone(id, employee.id);
