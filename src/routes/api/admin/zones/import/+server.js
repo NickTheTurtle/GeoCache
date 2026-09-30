@@ -8,7 +8,19 @@ import { requireAdmin, validPolygon, validSecret, decodeImage, pointInSF } from 
 export async function POST({ request, url }) {
   requireAdmin(request, url);
 
-  const body = await request.json().catch(() => null);
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    // Over the server's upload limit (BODY_SIZE_LIMIT): say so, rather than
+    // blaming the file's contents.
+    if (e?.status === 413) {
+      const bytes = Number(request.headers.get('content-length'));
+      const size = bytes ? ` (${(bytes / 1024 / 1024).toFixed(1)} MB)` : '';
+      throw error(413, `That file${size} is larger than this server accepts. Raise BODY_SIZE_LIMIT to import it.`);
+    }
+    throw error(400, 'File is not valid JSON.');
+  }
   if (body == null) throw error(400, 'File is not valid JSON.');
 
   const zones = Array.isArray(body) ? body : body.zones;

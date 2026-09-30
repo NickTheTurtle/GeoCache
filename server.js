@@ -12,7 +12,12 @@ import path from 'node:path';
 import http from 'node:http';
 import https from 'node:https';
 import { fileURLToPath } from 'node:url';
-import { handler } from './build/handler.js';
+
+// adapter-node reads BODY_SIZE_LIMIT once, when its handler module loads, and
+// defaults to 512 KB. Zone exports carry hint images as base64 and easily run to
+// several MB, so default to 10 MB (as the EC2 setup does) before loading it.
+process.env.BODY_SIZE_LIMIT ||= String(10 * 1024 * 1024);
+const { handler } = await import('./build/handler.js');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
