@@ -670,7 +670,7 @@
                     <span class="stepper-value" aria-live="polite">
                       {c.points} point{c.points === 1 ? '' : 's'}
                       {#if c.adjustment}
-                        <small class="adjustment" class:neg={c.adjustment < 0}>{c.adjustment > 0 ? '+' : '\u2212'}{Math.abs(c.adjustment)} adjusted</small>
+                        <span class="adjustment" class:neg={c.adjustment < 0}>({c.adjustment > 0 ? '+' : '\u2212'}{Math.abs(c.adjustment)})</span>
                       {/if}
                     </span>
                     <button class="secondary" type="button" aria-label={`Add a point for ${c.name}`} onclick={() => adjustEmployeePoints(c, 1)}>+</button>

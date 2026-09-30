@@ -122,9 +122,9 @@ test.describe('Admin console', () => {
     const plus = card.getByRole('button', { name: `Add a point for ${name}` });
     const minus = card.getByRole('button', { name: `Subtract a point from ${name}` });
     for (let i = 0; i < 3; i++) await plus.click();
-    await expect(card.locator('.stepper-value')).toHaveText(/^\s*3 points\s*\+3 adjusted\s*$/);
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*3 points\s*\(\+3\)\s*$/);
     for (let i = 0; i < 4; i++) await minus.click();
-    await expect(card.locator('.stepper-value')).toHaveText(/^\s*-1 points\s*\u22121 adjusted\s*$/);
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*-1 points\s*\(\u22121\)\s*$/);
     await expect(card.locator('.adjustment')).toHaveClass(/neg/);
     for (let i = 0; i < 3; i++) await plus.click();
     await expect.poll(async () => {
@@ -133,7 +133,7 @@ test.describe('Admin console', () => {
     }).toBe(2);
     await page.reload(); // the total survives a reload (saved server-side; login is kept for the session)
     await page.getByRole('tab', { name: 'Employees' }).click();
-    await expect(card.locator('.stepper-value')).toHaveText(/^\s*2 points\s*\+2 adjusted\s*$/);
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*2 points\s*\(\+2\)\s*$/);
 
     await card.getByRole('button', { name: 'Delete' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Delete employee' }).click();
