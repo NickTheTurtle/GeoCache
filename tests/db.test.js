@@ -305,6 +305,7 @@ test('adjustPoints adds and subtracts on top of claim points, and stacks', () =>
   assert.equal(points(), earned + 5);
   db.adjustPoints(e.id, -3);
   assert.equal(points(), earned + 2); // adjustments accumulate
+  assert.equal(db.listEmployees().find((r) => r.id === e.id).adjustment, 2);
 
   // Later claims still add on top of the adjustment.
   const z2 = db.createZone({ name: 'Adj2', hint: '', polygon: POLY });
@@ -316,6 +317,7 @@ test('an adjustment counts for an employee with no claims and can reorder the bo
   db.resetGame({ keepZones: false });
   const claimer = db.createEmployee('Claimer');
   const bonus = db.createEmployee('Bonus');
+  assert.equal(db.listEmployees().find((r) => r.id === bonus.id).adjustment, 0); // 0, not null, when none
   const z = db.createZone({ name: 'Board', hint: '', polygon: POLY });
   db.claimZone(z.id, claimer.id);
 

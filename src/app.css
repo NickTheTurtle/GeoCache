@@ -633,8 +633,10 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 }
 .stepper-value {
   min-width: 70px; text-align: center; font-weight: 700; color: var(--brass-deep);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums; line-height: 1.15;
 }
+.stepper-value .adjustment { display: block; font-size: 11px; font-weight: 600; color: #2f7a4a; }
+.stepper-value .adjustment.neg { color: var(--signal-red); }
 
 /* Compact modal for admin confirm dialogs (no map) */
 .admin-modal { height: auto; max-height: 88vh; width: min(440px, 100%); }

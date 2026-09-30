@@ -117,20 +117,23 @@ test.describe('Admin console', () => {
     await page.getByRole('tab', { name: 'Employees' }).click();
     const card = page.locator('.zone-item', { hasText: name });
     await expect(card.locator('.stepper-value')).toHaveText('0 points');
+    await expect(card.locator('.adjustment')).toHaveCount(0); // hidden when there's no adjustment
 
     const plus = card.getByRole('button', { name: `Add a point for ${name}` });
     const minus = card.getByRole('button', { name: `Subtract a point from ${name}` });
     for (let i = 0; i < 3; i++) await plus.click();
-    await expect(card.locator('.stepper-value')).toHaveText('3 points');
-    await minus.click();
-    await expect(card.locator('.stepper-value')).toHaveText('2 points');
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*3 points\s*\+3 adjusted\s*$/);
+    for (let i = 0; i < 4; i++) await minus.click();
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*-1 points\s*\u22121 adjusted\s*$/);
+    await expect(card.locator('.adjustment')).toHaveClass(/neg/);
+    for (let i = 0; i < 3; i++) await plus.click();
     await expect.poll(async () => {
       const board = await (await request.get('/api/leaderboard')).json();
       return board.find((r) => r.id === created.id)?.points;
     }).toBe(2);
     await page.reload(); // the total survives a reload (saved server-side; login is kept for the session)
     await page.getByRole('tab', { name: 'Employees' }).click();
-    await expect(card.locator('.stepper-value')).toHaveText('2 points');
+    await expect(card.locator('.stepper-value')).toHaveText(/^\s*2 points\s*\+2 adjusted\s*$/);
 
     await card.getByRole('button', { name: 'Delete' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Delete employee' }).click();

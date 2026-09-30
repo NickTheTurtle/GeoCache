@@ -266,6 +266,7 @@
   // +1/-1 deltas, so rapid taps can't overwrite each other on the server.
   async function adjustEmployeePoints(e, delta) {
     e.points += delta;
+    e.adjustment += delta;
     const res = await fetch(`/api/admin/employees/${e.id}/points`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -666,7 +667,12 @@
                   <strong>{c.name}</strong>
                   <div class="points-stepper" role="group" aria-label={`Points for ${c.name}`}>
                     <button class="secondary" type="button" aria-label={`Subtract a point from ${c.name}`} onclick={() => adjustEmployeePoints(c, -1)}>&minus;</button>
-                    <span class="stepper-value" aria-live="polite">{c.points} point{c.points === 1 ? '' : 's'}</span>
+                    <span class="stepper-value" aria-live="polite">
+                      {c.points} point{c.points === 1 ? '' : 's'}
+                      {#if c.adjustment}
+                        <small class="adjustment" class:neg={c.adjustment < 0}>{c.adjustment > 0 ? '+' : '\u2212'}{Math.abs(c.adjustment)} adjusted</small>
+                      {/if}
+                    </span>
                     <button class="secondary" type="button" aria-label={`Add a point for ${c.name}`} onclick={() => adjustEmployeePoints(c, 1)}>+</button>
                   </div>
                 </div>

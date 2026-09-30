@@ -79,8 +79,16 @@ export function getEmployeeByToken(token) {
   return db.prepare('SELECT * FROM employees WHERE token = ?').get(token);
 }
 
+// `adjustment` is the admin-granted points total (0 when none).
 export function listEmployees() {
-  return db.prepare('SELECT id, name, token, created_at FROM employees ORDER BY name').all();
+  return db
+    .prepare(
+      `SELECT emp.id, emp.name, emp.token, emp.created_at, COALESCE(a.points, 0) AS adjustment
+         FROM employees emp
+         LEFT JOIN point_adjustments a ON a.employee_id = emp.id
+        ORDER BY emp.name`
+    )
+    .all();
 }
 
 // Deleting an employee also removes their claims and point adjustments (ON DELETE
