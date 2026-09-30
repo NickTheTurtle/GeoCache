@@ -2,7 +2,7 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import { employee } from '$lib/employee.js';
   import { loadLeaflet, addBaseLayer, SF_CENTER } from '$lib/leaflet.js';
-  import { escapeHtml, zoneStyle, CHECK_ICON, extractSecret, renderHint, getJson, poll } from '$lib/util.js';
+  import { escapeHtml, zoneStyle, CHECK_ICON, extractSecret, renderHint, getJson, poll, formatPts, formatDelta } from '$lib/util.js';
   import Celebration from '$lib/Celebration.svelte';
   import BrandIcon from '$lib/BrandIcon.svelte';
 
@@ -235,7 +235,7 @@
     try {
       const { res, data } = await claimZoneBySecret(secret);
       if (res.ok && data.status === 'claimed') {
-        celebrate(`Claimed ${data.zone.name} for ${currentEmployee.name}! +${data.points} point${data.points === 1 ? '' : 's'}${data.first ? '. First to solve!' : ''}.`);
+        celebrate(`Claimed ${data.zone.name} for ${currentEmployee.name}! ${formatDelta(data.points)} pts${data.first ? '. First to solve!' : ''}.`);
         loadZones();
         loadLeaderboard();
       } else if (data.status === 'already-yours') {
@@ -524,7 +524,7 @@
               <li>
                 <span class="rank">{i + 1}</span>
                 <span class="lname">{r.name}</span>
-                <span class="points">{r.points}</span>
+                <span class="points">{formatPts(r.points)}</span>
               </li>
             {/each}
           {/if}
@@ -627,7 +627,7 @@
           </div>
         </Celebration>
       {:else if claimView === 'claimed'}
-        <Celebration text={`Claimed ${claimZoneName} for ${currentEmployee?.name}! +${claimPoints} point${claimPoints === 1 ? '' : 's'}${claimFirst ? '. First to solve!' : ''}.`}>
+        <Celebration text={`Claimed ${claimZoneName} for ${currentEmployee?.name}! ${formatDelta(claimPoints)} pts${claimFirst ? '. First to solve!' : ''}.`}>
           <div class="success-actions">
             <button onclick={() => { closeClaim(); setTab('board'); }}>See leaderboard</button>
             <button class="ghost" onclick={closeClaim}>Close</button>

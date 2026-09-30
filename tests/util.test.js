@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { escapeHtml, zoneStyle, extractSecret, renderHint } from '../src/lib/util.js';
+import { escapeHtml, zoneStyle, extractSecret, renderHint, formatPts, formatDelta } from '../src/lib/util.js';
 
 test('escapeHtml escapes all HTML-sensitive characters', () => {
   assert.equal(escapeHtml(`<a href="x">&'`), '&lt;a href=&quot;x&quot;&gt;&amp;&#39;');
@@ -123,3 +123,11 @@ test('renderHint rejects unsafe link URLs (XSS-safe)', () => {
   assert.equal(renderHint('[x](/local/path)'), '[x](/local/path)');
 });
 
+test('formatPts/formatDelta use "pts" and a true minus sign', () => {
+  assert.equal(formatPts(12), '12 pts');
+  assert.equal(formatPts(1), '1 pts');
+  assert.equal(formatPts(0), '0 pts');
+  assert.equal(formatPts(-3), '\u22123 pts');
+  assert.equal(formatDelta(5), '+5');
+  assert.equal(formatDelta(-2), '\u22122');
+});

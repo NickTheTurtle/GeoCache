@@ -73,7 +73,7 @@ test.describe('Claim modal (opened from a QR link /?c=<secret>)', () => {
     const board = await openLeaderboard(page);
     await expect(board).toContainText('Bridge Trolls');
     const trollsRow = board.locator('li', { hasText: 'Bridge Trolls' });
-    expect(Number(await trollsRow.locator('.points').textContent())).toBeGreaterThanOrEqual(1);
+    expect(parseInt(await trollsRow.locator('.points').textContent(), 10)).toBeGreaterThanOrEqual(1);
   });
 
   test('re-visiting an already-claimed zone shows the already state (no double claim)', async ({ page }) => {

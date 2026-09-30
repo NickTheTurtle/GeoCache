@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { loadLeaflet, addBaseLayer, SF_CENTER } from '$lib/leaflet.js';
   import BrandIcon from '$lib/BrandIcon.svelte';
-  import { escapeHtml, getJson, poll, CLAIM_RADIUS_M } from '$lib/util.js';
+  import { escapeHtml, getJson, poll, CLAIM_RADIUS_M, formatPts, formatDelta } from '$lib/util.js';
 
   const PW_KEY = 'geocache_admin_pw';
 
@@ -667,10 +667,10 @@
                   <strong>{c.name}</strong>
                   <div class="points-stepper" role="group" aria-label={`Points for ${c.name}`}>
                     <button class="secondary" type="button" aria-label={`Subtract a point from ${c.name}`} onclick={() => adjustEmployeePoints(c, -1)}>&minus;</button>
-                    <span class="stepper-value" aria-live="polite">
-                      {c.points} point{c.points === 1 ? '' : 's'}
+                    <span class="points stepper-value" aria-live="polite">
+                      {formatPts(c.points)}
                       {#if c.adjustment}
-                        <span class="adjustment" class:neg={c.adjustment < 0}>({c.adjustment > 0 ? '+' : '\u2212'}{Math.abs(c.adjustment)})</span>
+                        <span class="adjustment" class:neg={c.adjustment < 0}>({formatDelta(c.adjustment)})</span>
                       {/if}
                     </span>
                     <button class="secondary" type="button" aria-label={`Add a point for ${c.name}`} onclick={() => adjustEmployeePoints(c, 1)}>+</button>

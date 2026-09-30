@@ -1,7 +1,7 @@
 /* ==========================================================================
    C.A.R.E. - "Nautical Explorer" theme
    Deep navy + brass/gold on aged sea-chart cream.
-   Type: Cinzel (engraved caps) · Cormorant Garamond (serif) · Inter (body)
+   Type: Cinzel (engraved caps, headings) · Inter (everything else)
    ========================================================================== */
 :root {
   --paper: #ece4d2;        /* aged chart cream */
@@ -19,9 +19,10 @@
   --brass-wash: #f2e6c6;
   --sea: #2a7ea3;          /* accent / location / "inside" */
   --signal-red: #b23a3a;   /* claimed / danger */
+  --success: #2f7a4a;      /* claimed check / positive adjustment */
+  --navy-hover: #17456e;
 
   --font-display: 'Cinzel', Georgia, serif;
-  --font-serif: 'Cormorant Garamond', Georgia, serif;
   --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -63,7 +64,7 @@ button, a.button {
   transition: background .12s ease, transform .05s ease;
 }
 a.button { display: inline-block; line-height: normal; text-decoration: none; }
-button:hover, a.button:hover { background: #17456e; }
+button:hover, a.button:hover { background: var(--navy-hover); }
 button:active, a.button:active { transform: translateY(1px); }
 button.secondary, a.button.secondary {
   background: transparent;
@@ -94,6 +95,14 @@ input, textarea, select {
   font-size: 15px;
   font-family: var(--font-body);
 }
+/* The native "Choose File" button, themed like a secondary button */
+input[type=file] { padding: 8px 10px; font-size: 14px; color: var(--muted); }
+input[type=file]::file-selector-button {
+  margin-right: 10px; padding: 7px 12px; cursor: pointer;
+  border: 1px solid var(--edge-strong); border-radius: 8px; background: transparent;
+  font: 600 11px var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ink);
+}
+input[type=file]::file-selector-button:hover { background: #0f2a440d; }
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--sea);
@@ -333,7 +342,7 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   animation: sc-draw .5s ease-out forwards;
 }
 .success-check .sc-check {
-  stroke: #3f8f6a;
+  stroke: var(--success);
   stroke-width: 4;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -465,7 +474,7 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   background: var(--brass-wash);
 }
 .lname { flex: 1; font-weight: 600; }
-.points { font-weight: 800; color: var(--brass-deep); font-size: 17px; }
+.points { font-weight: 800; color: var(--brass-deep); font-size: 17px; font-variant-numeric: tabular-nums; }
 
 /* ---------- Misc text ---------- */
 .muted { color: var(--muted); font-size: 13px; }
@@ -551,7 +560,7 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 .modal-body h2 {
   margin: 0 0 6px;
   font-family: var(--font-display); font-weight: 600;
-  font-size: 22px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink);
+  font-size: 22px; letter-spacing: .04em; text-transform: uppercase; color: var(--navy);
 }
 .modal-body .popup-status { font-size: 13px; margin-bottom: 12px; }
 .modal-body .popup-hint {
@@ -581,7 +590,7 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   border-radius: 8px; background: var(--navy); color: #fff; border: none; cursor: pointer;
 }
 .back-btn svg { width: 18px; height: 18px; }
-.back-btn:hover { background: var(--navy-deep); }
+.back-btn:hover { background: var(--navy-hover); }
 
 /* Manual-claim controls sit below the QR block */
 .claim-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--edge); }
@@ -620,7 +629,7 @@ svg.leaflet-zoom-animated:focus { outline: none; }
 .claim-row { display: flex; gap: 8px; margin-bottom: 8px; }
 .claim-row select {
   flex: 1; min-width: 0; padding: 8px; border-radius: 8px;
-  border: 1px solid var(--edge-strong); background: #fff; color: var(--ink);
+  border: 1px solid var(--edge-strong); background: var(--surface); color: var(--ink);
 }
 .claim-row button { flex: 0 0 auto; }
 /* Employee card header: name on the left, points stepper on the right */
@@ -631,11 +640,8 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   width: 30px; height: 30px; padding: 0; border-radius: 999px;
   font-size: 18px; font-weight: 700; line-height: 1; letter-spacing: 0;
 }
-.stepper-value {
-  min-width: 70px; text-align: center; font-weight: 700; color: var(--brass-deep);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.stepper-value .adjustment { font-weight: 600; color: #2f7a4a; }
+.stepper-value { min-width: 64px; text-align: center; white-space: nowrap; }
+.stepper-value .adjustment { font-weight: 600; color: var(--success); }
 .stepper-value .adjustment.neg { color: var(--signal-red); }
 
 /* Compact modal for admin confirm dialogs (no map) */
