@@ -10,8 +10,9 @@
 // (#id:target ~ .pad .padClass) show only the arrows leading out of the current
 // cell, so moves respect walls.
 //
-// Arrows slide along a corridor until the next turn or junction. Reaching the
-// exit reveals a picture, inlined as a data: URL so nothing else is fetched.
+// Arrows slide along a corridor until the next turn or junction (or the Target).
+// The Target sits near the middle; reaching it reveals a picture, inlined as a
+// data: URL so nothing else is fetched.
 
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -133,12 +134,13 @@ const STEP = (w) => ({ [N]: -w, [S]: w, [E]: 1, [W]: -1 });
 const SIDEWAYS = { [N]: E | W, [S]: E | W, [E]: N | S, [W]: N | S };
 
 // Where an arrow press in `dir` from cell i lands: keep sliding straight until a
-// wall is ahead or a side passage opens (a turn or junction), so long corridors
-// take one press. Assumes the first step is open.
-export function slideTarget(open, i, dir, w) {
+// wall is ahead, a side passage opens (a turn or junction), or the Target
+// (`stop`) is reached, so long corridors take one press but the Target is never
+// skipped. Assumes the first step is open.
+export function slideTarget(open, i, dir, w, stop = -1) {
   const step = STEP(w)[dir];
   let j = i + step;
-  while (open[j] & dir && !(open[j] & SIDEWAYS[dir])) j += step;
+  while (j !== stop && open[j] & dir && !(open[j] & SIDEWAYS[dir])) j += step;
   return j;
 }
 
@@ -166,6 +168,9 @@ export function earlyBranches({ w, h, open, path }) {
 }
 
 const CANDIDATES = 20;
+// Bump to regenerate every maze (new layout and new square codes) from the same
+// seed, e.g. after a change in how Targets are chosen.
+export const LAYOUT_VERSION = 2;
 const CODE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
 // Unguessable, seed-derived names for every square: `id` is the URL fragment
@@ -187,22 +192,67 @@ export function makeCodes(seed, n) {
   return { id: make(), cell: make(), pad: make(), order: shuffle([...Array(n).keys()], rng) };
 }
 
-// Build the maze model. Deterministic for a given (seed, w, h): of a fixed set
-// of candidate layouts, keep the one with the most real dead ends branching off
-// the first half of the route (ties go to the longer route).
-export function buildMaze({ seed = 'geocache', w = 18, h = 18 } = {}) {
-  const start = 0;
-  const exit = w * h - 1;
-  let best = null;
-  for (let k = 0; k < CANDIDATES; k++) {
-    const open = carve(w, h, mulberry32(hashSeed(k ? `${seed}#${k}` : String(seed))));
-    const maze = { w, h, open, start, exit, path: solve(open, w, h, start, exit) };
-    const { deep } = earlyBranches(maze);
-    if (!best || deep > best.deep || (deep === best.deep && maze.path.length > best.maze.path.length)) {
-      best = { maze, deep };
+// Steps from `from` to every cell (every cell is reachable in a perfect maze).
+function distances(open, w, h, from) {
+  const dist = new Array(w * h).fill(-1);
+  dist[from] = 0;
+  const queue = [from];
+  while (queue.length) {
+    const cur = queue.shift();
+    for (const j of passages(open, cur, w, h)) {
+      if (dist[j] === -1) {
+        dist[j] = dist[cur] + 1;
+        queue.push(j);
+      }
     }
   }
-  return { ...best.maze, codes: makeCodes(seed, w * h) };
+  return dist;
+}
+
+// Cells in the middle of the grid: within 1.5 cells of the exact center (a 4x4
+// block on even sizes, 3x3 on odd ones).
+export function centralCells(w, h) {
+  const cx = (w - 1) / 2, cy = (h - 1) / 2;
+  const cells = [];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) if (Math.abs(x - cx) <= 1.5 && Math.abs(y - cy) <= 1.5) cells.push(y * w + x);
+  }
+  return cells;
+}
+
+// The Target: the central dead end (a "vault" off a passage) farthest from the
+// entrance, or the farthest central cell if none of them is a dead end.
+function centralTarget(open, w, h, dist) {
+  const central = centralCells(w, h);
+  const dead = central.filter((c) => passages(open, c, w, h).length === 1);
+  return (dead.length ? dead : central).reduce((a, b) => (dist[b] > dist[a] ? b : a));
+}
+
+// The candidate layouts buildMaze chooses from, each with its central Target,
+// the route to it, and how many real dead ends branch off that route early.
+export function layoutCandidates(key, w, h) {
+  const start = 0;
+  return Array.from({ length: CANDIDATES }, (_, k) => {
+    const open = carve(w, h, mulberry32(hashSeed(`${key}#${k}`)));
+    const exit = centralTarget(open, w, h, distances(open, w, h, start));
+    const maze = { w, h, open, start, exit, path: solve(open, w, h, start, exit) };
+    return { maze, deep: earlyBranches(maze).deep };
+  });
+}
+
+// Build the maze model. Deterministic for a given (seed, w, h). The Target is in
+// the middle, which a direct route can reach quickly, so of a fixed set of
+// candidate layouts keep those whose route covers at least a quarter of the grid
+// (81 squares at 18x18), then pick the one with the most real dead ends branching
+// off early (ties go to the longer route).
+export function buildMaze({ seed = 'geocache', w = 18, h = 18 } = {}) {
+  const key = `${seed}/v${LAYOUT_VERSION}`;
+  const all = layoutCandidates(key, w, h);
+  const long = all.filter(({ maze }) => maze.path.length >= Math.round((w * h) / 4));
+  const best = (long.length ? long : all).reduce((a, b) =>
+    b.deep > a.deep || (b.deep === a.deep && b.maze.path.length > a.maze.path.length) ? b : a
+  );
+  return { ...best.maze, codes: makeCodes(key, w * h) };
 }
 
 const CSS = `
@@ -225,6 +275,8 @@ h1{font-size:2.2rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 .5e
 .armed span{padding:12px 18px;border:2px solid #b23a3a;border-radius:10px;background:#fbe3e1;color:#7a1f1f;font:bold 1.25rem/1.35 Georgia,serif;text-align:center}
 .g{display:grid;grid-template-columns:repeat(var(--w),var(--s));background:#fbf4e2;box-shadow:0 2px 10px rgba(60,35,5,.25)}
 .c{width:var(--s);height:var(--s);border:0 solid #2b1d0e}
+.tg{background:radial-gradient(circle closest-side,#b23a3a 0 28%,#fbe3e1 30% 52%,#b23a3a 54% 76%,transparent 78%)}
+.key{display:inline-block;width:1.15em;height:1.15em;vertical-align:-.2em}
 .n{border-top-width:2px}.w{border-left-width:2px}.e{border-right-width:2px}.s{border-bottom-width:2px}
 .pad{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,64px);gap:8px;justify-content:center;margin:1.2em auto 0;position:relative}
 .ar{display:flex;align-items:center;justify-content:center;border:2px solid #2b1d0e;border-radius:16px;background:#fff8e6;color:#2b1d0e;font:bold 30px/1 system-ui,sans-serif;text-decoration:none;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
@@ -330,16 +382,16 @@ export function renderMazePage(maze, { title = 'The Heist', image = DEFAULT_IMAG
   const { w, h, open, start, exit, codes } = maze;
   const timer = countdown(minutes, codes.id[exit]);
   const n = w * h;
-  // The outer wall gets openings at the entrance (top of the start cell) and the
-  // exit (bottom of the exit cell).
+  // The outer wall has one opening, at the entrance (top of the start cell); the
+  // Target is inside the maze and marked with a bullseye.
   const sides = open.slice();
   sides[start] |= N;
-  sides[exit] |= S;
 
   const cells = [];
   for (let i = 0; i < n; i++) {
     const x = i % w, y = Math.floor(i / w);
     const cls = ['c', codes.cell[i]];
+    if (i === exit) cls.push('tg');
     if (!(sides[i] & N)) cls.push('n');
     if (!(sides[i] & W)) cls.push('w');
     if (x === w - 1 && !(sides[i] & E)) cls.push('e');
@@ -357,7 +409,7 @@ export function renderMazePage(maze, { title = 'The Heist', image = DEFAULT_IMAG
     markers.push(`<i class="mk" id="${codes.id[i]}"></i>`);
     for (const [dir, cl, glyph, label] of ARROWS) {
       if (open[i] & dir) {
-        const to = codes.id[slideTarget(open, i, dir, w)];
+        const to = codes.id[slideTarget(open, i, dir, w, exit)];
         moves.push(`<a href="#${to}" class="ar ${cl} ${codes.pad[i]}" aria-label="${label}">${glyph}</a>`);
       }
     }
@@ -397,7 +449,7 @@ ${markers.join('')}
 <div class="b" style="--w:${w}">
 <div class="io in"><span>Entrance &darr;</span>${timer.html}</div>
 <div class="g">${cells.join('')}</div>
-<div class="io out">&darr; Target</div>
+<div class="io out"><span class="tg key" aria-hidden="true"></span> Target</div>
 </div>
 <nav class="pad" aria-label="Move">${placeholders.join('')}${moves.join('')}${timer.armed}</nav>
 <div class="win">

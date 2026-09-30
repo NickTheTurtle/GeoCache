@@ -54,7 +54,7 @@ test.describe('Maze (JavaScript disabled)', () => {
       const from = maze.path[k];
       const [dir, name] = DIRS[maze.path[k + 1] - from];
       await arrow(page, name).click();
-      const to = slideTarget(maze.open, from, dir, w);
+      const to = slideTarget(maze.open, from, dir, w, maze.exit);
       k = maze.path.indexOf(to);
       expect(k, 'a slide along the true path stays on it').toBeGreaterThan(0);
       await atCell(page, to);
@@ -68,7 +68,8 @@ test.describe('Maze (JavaScript disabled)', () => {
     await expect(page).toHaveTitle('The Heist');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('The Heist');
     await expect(page.locator('.io.in > span').first()).toHaveText('Entrance ↓');
-    await expect(page.locator('.io.out')).toHaveText('↓ Target');
+    await expect(page.locator('.io.out')).toHaveText('Target');
+    await expect(page.locator('.g .tg')).toHaveCount(1); // the bullseye marks the Target square
     // Moving must not make the page jump around.
     expect(await page.evaluate(() => window.scrollY)).toBe(startY);
 
