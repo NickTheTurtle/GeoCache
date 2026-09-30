@@ -112,7 +112,7 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 | `DATA_DIR`        | `./data`   | Directory for the SQLite database file. |
 | `PUBLIC_BASE_URL` | (none)     | Public URL encoded in QR codes.         |
 | `MAZE_SEED`       | (generated) | `/heist72` layout and square codes. Default: random, kept in `DATA_DIR/maze-seed`. |
-| `MAZE_SIZE`       | `18`       | `/heist72` grid: `18` or `WxH` (5 to 40). |
+| `MAZE_SIZE`       | `15`       | `/heist72` grid: `15` or `WxH` (5 to 40). |
 
 ## The Heist (`/heist`, `/heist72`)
 

@@ -121,8 +121,8 @@ function solve(open, w, h, from, to) {
   return path;
 }
 
-// "18" -> 18x18, "24x16" -> 24 wide by 16 tall. Clamped to a sane range.
-export function parseSize(value, fallback = 18) {
+// "15" -> 15x15, "24x16" -> 24 wide by 16 tall. Clamped to a sane range.
+export function parseSize(value, fallback = 15) {
   const m = /^\s*(\d+)\s*(?:[x×]\s*(\d+))?\s*$/i.exec(String(value ?? ''));
   const clamp = (n) => Math.min(40, Math.max(5, n));
   if (!m) return { w: fallback, h: fallback };
@@ -262,7 +262,7 @@ export const TARGET_PRESSES = 40;
 // perfect run is within 2 presses of `presses` (or the closest one if none are),
 // then pick the closest, breaking ties by the most real dead ends branching off
 // early.
-export function buildMaze({ seed = 'geocache', w = 18, h = 18, presses = TARGET_PRESSES } = {}) {
+export function buildMaze({ seed = 'geocache', w = 15, h = 15, presses = TARGET_PRESSES } = {}) {
   const key = `${seed}/v${LAYOUT_VERSION}`;
   const all = layoutCandidates(key, w, h).map((c) => ({ ...c, off: Math.abs(solutionPresses(c.maze) - presses) }));
   const near = all.filter((c) => c.off <= 2);
@@ -495,7 +495,7 @@ let cached = null;
 //   MAZE_SEED       any string; sets the layout and the square codes. If unset,
 //                   a private random seed is created once and kept in
 //                   DATA_DIR/maze-seed (see resolveSeed).
-//   MAZE_SIZE       "18" for 18x18 or "24x16" for width x height (5 to 40)
+//   MAZE_SIZE       "15" for 15x15 or "24x16" for width x height (5 to 40)
 //   MAZE_IMAGE      picture shown on escape (png/jpg/gif/webp/svg); defaults to
 //                   assets/maze-prize.png, or a treasure chest if that is missing
 //   MAZE_IMAGE_ALT  alt text for that picture
