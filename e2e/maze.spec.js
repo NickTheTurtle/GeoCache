@@ -160,3 +160,28 @@ test.describe('Heist countdown (CSS only)', () => {
     expect(await state()).toBe('paused');
   });
 });
+
+test.describe('Heist arrow pad layout', () => {
+  for (const vp of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
+    test(`all four arrow slots are the same size and evenly aligned at ${vp.width}px`, async ({ page }) => {
+      await page.setViewportSize(vp);
+      await page.goto('/heist72');
+      const box = async (dir) => page.locator(`.pad .off.${dir}`).boundingBox();
+      const [u, l, r, d] = await Promise.all(['u', 'l', 'r', 'd'].map(box));
+      for (const [name, b] of Object.entries({ Up: u, Left: l, Right: r, Down: d })) {
+        expect(Math.round(b.width), `${name} width`).toBe(Math.round(u.width));
+        expect(Math.round(b.height), `${name} height`).toBe(Math.round(u.width));
+      }
+      const gap = l.y - (u.y + u.height);
+      expect(Math.round(u.x), 'Up is centered over Down').toBe(Math.round(d.x));
+      expect(Math.round(l.y), 'Left and Right share a row').toBe(Math.round(r.y));
+      expect(Math.round(d.y - (l.y + l.height)), 'even vertical gaps').toBe(Math.round(gap));
+      expect(Math.round(u.x - (l.x + l.width)), 'even horizontal gaps').toBe(Math.round(gap));
+      // A live arrow sits exactly on its slot.
+      const live = await page.locator('.pad a.ar:visible').first();
+      const lb = await live.boundingBox();
+      const slot = await page.locator(`.pad .off.${(await live.getAttribute('class')).split(' ')[1]}`).boundingBox();
+      expect([lb.x, lb.y, lb.width, lb.height].map(Math.round)).toEqual([slot.x, slot.y, slot.width, slot.height].map(Math.round));
+    });
+  }
+});

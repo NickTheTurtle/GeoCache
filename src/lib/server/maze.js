@@ -269,8 +269,10 @@ h1{font-size:2.2rem;letter-spacing:.12em;text-transform:uppercase;margin:0 0 .5e
 .io{font:bold 13px/1.4 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#7a4b12}
 .in{display:flex;justify-content:space-between;align-items:flex-end}.out{text-align:right}
 .t{font:bold 20px system-ui,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.02em;text-transform:none;color:#2b1d0e}
-.d{display:inline-block;height:1.25em;overflow:hidden;vertical-align:bottom}
-.s{display:block;line-height:1.25em}
+/* Countdown digit window (.cw) and its sliding strip (.cs). Short names like .d
+   and .s are taken: .u/.l/.r/.d are the arrows and .n/.w/.e/.s are cell walls. */
+.cw{display:inline-block;height:1.25em;overflow:hidden;vertical-align:bottom}
+.cs{display:block;line-height:1.25em}
 .armed{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;visibility:hidden}
 .armed span{padding:12px 18px;border:2px solid #b23a3a;border-radius:10px;background:#fbe3e1;color:#7a1f1f;font:bold 1.25rem/1.35 Georgia,serif;text-align:center}
 .g{display:grid;grid-template-columns:repeat(var(--w),var(--s));background:#fbf4e2;box-shadow:0 2px 10px rgba(60,35,5,.25)}
@@ -346,9 +348,9 @@ const escapeAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;
 export function countdown(minutes, exitId) {
   if (!Number.isInteger(minutes) || minutes < 1 || minutes > 9) throw new Error('minutes must be 1 to 9');
   const total = minutes * 60;
-  const line = 1.25; // em per digit, matches .s/.d in CSS
+  const line = 1.25; // em per digit, matches .cs/.cw in CSS
   const strip = (cls, digits) =>
-    `<span class="d" aria-hidden="true"><span class="s ${cls}">${digits.join('<br>')}</span></span>`;
+    `<span class="cw" aria-hidden="true"><span class="cs ${cls}">${digits.join('<br>')}</span></span>`;
   const up = (k) => `transform:translateY(-${+(k * line).toFixed(4)}em)`;
 
   const minuteDigits = [...Array(minutes + 1).keys()].reverse(); // M … 0
@@ -372,7 +374,7 @@ export function countdown(minutes, exitId) {
     `@keyframes hurry{to{color:#b23a3a}}.t{animation:hurry 0s ${total - 60}s forwards}` +
     `@keyframes arm{to{visibility:hidden}}.pad{animation:arm 0s ${total}s forwards}` +
     `@keyframes alarm{to{visibility:visible}}.armed{animation:alarm 0s ${total}s forwards}` +
-    `#${exitId}:target~.b .t,#${exitId}:target~.b .s{animation-play-state:paused}`;
+    `#${exitId}:target~.b .t,#${exitId}:target~.b .cs{animation-play-state:paused}`;
   const armed = '<div class="armed"><span>Lasers re-armed!</span></div>';
   return { html, css, armed };
 }
