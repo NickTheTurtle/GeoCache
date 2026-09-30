@@ -14,8 +14,8 @@ test('heist note is a self-contained page with the full letter', () => {
     'I even waited an extra 30 minutes for your sorry asses.',
     'machine from the Museum, free to the public.',
     'Use that machine and come back here ON TIME.',
-    'Flabber Gast',
-    'September 28th',
+    'Flabber Geese',
+    'September 29th',
   ]) {
     assert.ok(html.includes(text), `missing: ${text}`);
   }

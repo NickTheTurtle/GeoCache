@@ -114,7 +114,7 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 
 ## The Heist (`/heist72`)
 
-`/heist72` serves **a note from "Flabber Gast"**
+`/heist72` serves **a note from "Flabber Geese"**
 (`src/lib/server/heistNote.js`) telling players to use "the machine from the
 Museum", the Wayback Machine. It's a self-contained page (inline CSS, no scripts
 or assets) with a 60-second cache.
