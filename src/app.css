@@ -623,8 +623,18 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   border: 1px solid var(--edge-strong); background: #fff; color: var(--ink);
 }
 .claim-row button { flex: 0 0 auto; }
-.points-row { margin: 10px 0 0; }
-.points-row input { flex: 1; min-width: 0; padding: 8px; }
+/* Employee card header: name on the left, points stepper on the right */
+.employee-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.employee-head strong { min-width: 0; overflow-wrap: anywhere; }
+.points-stepper { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.zone-item .points-stepper button {
+  width: 30px; height: 30px; padding: 0; border-radius: 999px;
+  font-size: 18px; font-weight: 700; line-height: 1; letter-spacing: 0;
+}
+.stepper-value {
+  min-width: 70px; text-align: center; font-weight: 700; color: var(--brass-deep);
+  font-variant-numeric: tabular-nums;
+}
 
 /* Compact modal for admin confirm dialogs (no map) */
 .admin-modal { height: auto; max-height: 88vh; width: min(440px, 100%); }

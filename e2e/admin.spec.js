@@ -116,16 +116,21 @@ test.describe('Admin console', () => {
     await page.getByRole('button', { name: 'Log in' }).click();
     await page.getByRole('tab', { name: 'Employees' }).click();
     const card = page.locator('.zone-item', { hasText: name });
-    await expect(card).toContainText('0 points');
+    await expect(card.locator('.stepper-value')).toHaveText('0 points');
 
-    await card.getByRole('spinbutton').fill('5');
-    await card.getByRole('button', { name: 'Adjust points' }).click();
-    await expect(card).toContainText('5 points');
-    await card.getByRole('spinbutton').fill('-3');
-    await card.getByRole('button', { name: 'Adjust points' }).click();
-    await expect(card).toContainText('2 points');
-    const board = await (await request.get('/api/leaderboard')).json();
-    expect(board.find((r) => r.id === created.id)?.points).toBe(2);
+    const plus = card.getByRole('button', { name: `Add a point for ${name}` });
+    const minus = card.getByRole('button', { name: `Subtract a point from ${name}` });
+    for (let i = 0; i < 3; i++) await plus.click();
+    await expect(card.locator('.stepper-value')).toHaveText('3 points');
+    await minus.click();
+    await expect(card.locator('.stepper-value')).toHaveText('2 points');
+    await expect.poll(async () => {
+      const board = await (await request.get('/api/leaderboard')).json();
+      return board.find((r) => r.id === created.id)?.points;
+    }).toBe(2);
+    await page.reload(); // the total survives a reload (saved server-side; login is kept for the session)
+    await page.getByRole('tab', { name: 'Employees' }).click();
+    await expect(card.locator('.stepper-value')).toHaveText('2 points');
 
     await card.getByRole('button', { name: 'Delete' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Delete employee' }).click();
