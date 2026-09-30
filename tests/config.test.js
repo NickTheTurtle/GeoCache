@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   validPolygon,
+  validSecret,
   pointInSF,
   decodeImage,
   isAdmin,
@@ -109,4 +110,13 @@ test('haversineMeters measures a north offset (~111m per 0.001 deg lat)', () => 
 
 test('haversineMeters grows for far-apart points', () => {
   assert.ok(haversineMeters(37.70, -122.40, 37.765, -122.445) > 1000);
+});
+
+test('validSecret accepts generated and hand-made URL-safe secrets, and nothing else', () => {
+  for (const ok of ['XQJCGx_vUTJF-6Ec', 'abcdefgh', 'A'.repeat(64), 'zone_1-final']) {
+    assert.equal(validSecret(ok), true, ok);
+  }
+  for (const bad of ['short7c', 'A'.repeat(65), 'has space1', 'slash/aaaa', 'plus+aaaa', 'q?c=aaaaa', 'ünïcödeAA', '', null, undefined, 12345678, {}]) {
+    assert.equal(validSecret(bad), false, JSON.stringify(bad));
+  }
 });

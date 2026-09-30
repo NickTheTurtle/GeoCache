@@ -106,3 +106,42 @@ test.describe('Admin console', () => {
     expect(download.suggestedFilename()).toBe('care-zones.json');
   });
 });
+
+test.describe('Zone import API keeps QR secrets', () => {
+  const POLY = [[37.77, -122.45], [37.771, -122.45], [37.771, -122.449]];
+  const post = (request, zones, replace = false) =>
+    request.post('/api/admin/zones/import', { headers: { 'x-admin-password': fx.admin }, data: { zones, replace } });
+
+  test('an exported secret is reused, so the QR code resolves to the imported zone', async ({ request }) => {
+    const secret = `keep_${Date.now().toString(36)}`;
+    const res = await post(request, [{ name: `Kept QR ${secret}`, hint: '', polygon: POLY, secret }]);
+    expect(res.status()).toBe(201);
+    const zone = await (await request.get(`/api/claim/${secret}`)).json();
+    expect(zone.name).toBe(`Kept QR ${secret}`);
+
+    // Export includes it.
+    const t = await (await request.get('/api/admin/token', { headers: { 'x-admin-password': fx.admin } })).json();
+    const dump = await (await request.get(`/api/admin/zones/export?t=${encodeURIComponent(t.token)}`)).json();
+    expect(dump.zones.find((z) => z.secret === secret)?.name).toBe(`Kept QR ${secret}`);
+  });
+
+  test('clashing, duplicated and malformed secrets are rejected with a clear 400', async ({ request }) => {
+    const taken = fx.zones.alpha.secret;
+    const clash = await post(request, [{ name: 'Clash', hint: '', polygon: POLY, secret: taken }]);
+    expect(clash.status()).toBe(400);
+    expect((await clash.json()).message).toMatch(/Zone #1 \("Clash"\): its QR secret already belongs to the zone "Alpha Cache"/);
+    expect((await (await request.get(`/api/claim/${taken}`)).json()).name).toBe('Alpha Cache'); // untouched
+
+    const dup = await post(request, [
+      { name: 'One', hint: '', polygon: POLY, secret: 'sameSecret99' },
+      { name: 'Two', hint: '', polygon: POLY, secret: 'sameSecret99' },
+    ]);
+    expect(dup.status()).toBe(400);
+    expect((await dup.json()).message).toMatch(/Zone #2 \("Two"\): another zone in this file has the same "secret"/);
+
+    const bad = await post(request, [{ name: 'Bad', hint: '', polygon: POLY, secret: 'no spaces!' }]);
+    expect(bad.status()).toBe(400);
+    expect((await bad.json()).message).toMatch(/"secret" must be 8-64 letters/);
+    expect((await request.get('/api/claim/sameSecret99')).status()).toBe(404); // nothing was imported
+  });
+});
