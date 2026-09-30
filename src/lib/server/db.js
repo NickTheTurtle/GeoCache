@@ -51,6 +51,13 @@ db.exec(`
     created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now')),
     UNIQUE (zone_id, employee_id)   -- an employee can claim a given zone only once
   );
+
+  -- Admin-granted points on top of what an employee earned from claims (can be
+  -- negative). One running total per employee.
+  CREATE TABLE IF NOT EXISTS point_adjustments (
+    employee_id INTEGER PRIMARY KEY REFERENCES employees(id) ON DELETE CASCADE,
+    points      INTEGER NOT NULL
+  );
 `);
 
 function newToken(bytes = 9) {
@@ -74,6 +81,21 @@ export function getEmployeeByToken(token) {
 
 export function listEmployees() {
   return db.prepare('SELECT id, name, token, created_at FROM employees ORDER BY name').all();
+}
+
+// Deleting an employee also removes their claims and point adjustments (ON DELETE
+// CASCADE). Where they solved a zone first, the next employee to solve it now
+// holds the first-solve bonus.
+export function deleteEmployee(id) {
+  return db.prepare('DELETE FROM employees WHERE id = ?').run(id).changes > 0;
+}
+
+// Add `delta` (positive or negative) to an employee's admin adjustment.
+export function adjustPoints(employeeId, delta) {
+  db.prepare(
+    `INSERT INTO point_adjustments (employee_id, points) VALUES (?, ?)
+     ON CONFLICT (employee_id) DO UPDATE SET points = points + excluded.points`
+  ).run(employeeId, delta);
 }
 
 // ---------- Zones ----------
@@ -344,7 +366,7 @@ export function unclaimZone(zoneId, employeeId) {
 
 export function leaderboard() {
   // Score = SOLVE_POINTS per puzzle solved + FIRST_BONUS for each puzzle this
-  // employee solved first. Rank by score, then by number of puzzles solved (more
+  // employee solved first + any admin adjustment. Rank by score, then by number of puzzles solved (more
   // ranks higher), then break remaining ties by whoever reached that score
   // first: the employee whose most-recent claim (MAX created_at) is earliest ranks
   // higher. Employees with no claims (NULL) fall to the bottom of the tie.
@@ -352,7 +374,8 @@ export function leaderboard() {
     .prepare(
       `SELECT emp.id, emp.name,
               COUNT(c.id) AS solved,
-              COUNT(c.id) * ${SOLVE_POINTS} + COUNT(f.employee_id) * ${FIRST_BONUS} AS points,
+              COUNT(c.id) * ${SOLVE_POINTS} + COUNT(f.employee_id) * ${FIRST_BONUS}
+                + COALESCE((SELECT a.points FROM point_adjustments a WHERE a.employee_id = emp.id), 0) AS points,
               MAX(c.created_at) AS last_claim_at
          FROM employees emp
          LEFT JOIN claims c ON c.employee_id = emp.id

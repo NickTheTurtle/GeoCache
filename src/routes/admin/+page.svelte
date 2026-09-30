@@ -38,6 +38,7 @@
   // Employee form
   let grpName = $state('');
   let grpErr = $state('');
+  let pointsDelta = $state({}); // employee id -> "+/- points" input
 
   // Import / export zones
   let importReplace = $state(false);
@@ -247,6 +248,33 @@
 
   function copyEmployeeLink(token) {
     navigator.clipboard.writeText(employeeLink(token)).then(() => toast('Personal link copied'));
+  }
+
+  async function deleteEmployee(e) {
+    const ok = await customConfirm({
+      title: 'Delete employee',
+      message: `Delete "${e.name}"? Their personal link stops working, and their claims and points are removed.`,
+      okLabel: 'Delete employee',
+    });
+    if (!ok) return;
+    const res = await fetch(`/api/admin/employees/${e.id}`, { method: 'DELETE', headers: authHeaders() });
+    if (!res.ok) { toast('Could not delete employee'); return; }
+    toast('Employee deleted');
+    loadZones(); // also refreshes employees (zone cards list who claimed)
+  }
+
+  async function adjustEmployeePoints(e) {
+    const delta = Number(pointsDelta[e.id]);
+    const res = await fetch(`/api/admin/employees/${e.id}/points`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ delta }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { toast(data.message || 'Could not adjust points'); return; }
+    pointsDelta[e.id] = '';
+    toast(`${e.name} now has ${data.points} point${data.points === 1 ? '' : 's'}`);
+    loadEmployees();
   }
 
   // ---------- Zones ----------
@@ -632,13 +660,18 @@
           {#if employees.length === 0}
             <p class="muted">No employees yet</p>
           {:else}
-            {#each employees as c}
+            {#each employees as c (c.id)}
               <div class="zone-item">
-                <strong>{c.name}</strong>
+                <strong>{c.name}</strong> <span class="muted">· {c.points} point{c.points === 1 ? '' : 's'}</span>
                 <div class="muted employee-link">{employeeLink(c.token)}</div>
                 <div class="row">
                   <button class="secondary" type="button" onclick={() => copyEmployeeLink(c.token)}>Copy link</button>
+                  <button class="danger" type="button" onclick={() => deleteEmployee(c)}>Delete</button>
                 </div>
+                <form class="claim-row points-row" onsubmit={(ev) => { ev.preventDefault(); adjustEmployeePoints(c); }}>
+                  <input type="number" step="1" min="-1000" max="1000" placeholder="+5 or -3" aria-label={`Points to add or subtract for ${c.name}`} bind:value={pointsDelta[c.id]} />
+                  <button class="secondary" type="submit" disabled={!pointsDelta[c.id]}>Adjust points</button>
+                </form>
               </div>
             {/each}
           {/if}

@@ -623,6 +623,8 @@ svg.leaflet-zoom-animated:focus { outline: none; }
   border: 1px solid var(--edge-strong); background: #fff; color: var(--ink);
 }
 .claim-row button { flex: 0 0 auto; }
+.points-row { margin: 10px 0 0; }
+.points-row input { flex: 1; min-width: 0; padding: 8px; }
 
 /* Compact modal for admin confirm dialogs (no map) */
 .admin-modal { height: auto; max-height: 88vh; width: min(440px, 100%); }

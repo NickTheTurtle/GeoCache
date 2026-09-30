@@ -3,12 +3,12 @@ import * as db from '$lib/server/db.js';
 import { requireAdmin, isAdmin } from '$lib/server/config.js';
 
 // Tokens are an employee's private sign-in secret ("personal link"), so only admins
-// get them. Players see just id + name.
+// get them (with each employee's points). Players see just id + name.
 export function GET({ request, url }) {
-  const admin = isAdmin(request, url);
-  return json(
-    db.listEmployees().map((e) => (admin ? { id: e.id, name: e.name, token: e.token } : { id: e.id, name: e.name }))
-  );
+  const employees = db.listEmployees();
+  if (!isAdmin(request, url)) return json(employees.map((e) => ({ id: e.id, name: e.name })));
+  const points = new Map(db.leaderboard().map((r) => [r.id, r.points]));
+  return json(employees.map((e) => ({ id: e.id, name: e.name, token: e.token, points: points.get(e.id) ?? 0 })));
 }
 
 // Employee creation is admin-only; players join via their personal link.

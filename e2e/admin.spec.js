@@ -105,6 +105,54 @@ test.describe('Admin console', () => {
     ]);
     expect(download.suggestedFilename()).toBe('care-zones.json');
   });
+
+  test('adjusts an employee\u2019s points and deletes an employee', async ({ page, request }) => {
+    const headers = { 'x-admin-password': fx.admin };
+    const name = `Temp Employee ${Date.now()}`;
+    const created = await (await request.post('/api/employees', { headers, data: { name } })).json();
+
+    await page.goto('/admin');
+    await page.locator('#pw').fill(fx.admin);
+    await page.getByRole('button', { name: 'Log in' }).click();
+    await page.getByRole('tab', { name: 'Employees' }).click();
+    const card = page.locator('.zone-item', { hasText: name });
+    await expect(card).toContainText('0 points');
+
+    await card.getByRole('spinbutton').fill('5');
+    await card.getByRole('button', { name: 'Adjust points' }).click();
+    await expect(card).toContainText('5 points');
+    await card.getByRole('spinbutton').fill('-3');
+    await card.getByRole('button', { name: 'Adjust points' }).click();
+    await expect(card).toContainText('2 points');
+    const board = await (await request.get('/api/leaderboard')).json();
+    expect(board.find((r) => r.id === created.id)?.points).toBe(2);
+
+    await card.getByRole('button', { name: 'Delete' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete employee' }).click();
+    await expect(page.locator('.zone-item', { hasText: name })).toHaveCount(0);
+    expect((await request.get(`/api/employees/${created.token}`)).status()).toBe(404);
+  });
+});
+
+test.describe('Employee admin API', () => {
+  test('points and delete endpoints need the admin password and validate input', async ({ request }) => {
+    const headers = { 'x-admin-password': fx.admin };
+    const e = await (await request.post('/api/employees', { headers, data: { name: `API ${Date.now()}` } })).json();
+
+    expect((await request.post(`/api/admin/employees/${e.id}/points`, { data: { delta: 5 } })).status()).toBe(401);
+    expect((await request.delete(`/api/admin/employees/${e.id}`)).status()).toBe(401);
+
+    for (const delta of [0, 1.5, 'abc', 5000]) {
+      const bad = await request.post(`/api/admin/employees/${e.id}/points`, { headers, data: { delta } });
+      expect(bad.status()).toBe(400);
+    }
+    const ok = await request.post(`/api/admin/employees/${e.id}/points`, { headers, data: { delta: -4 } });
+    expect(await ok.json()).toEqual({ points: -4 });
+
+    expect((await request.delete(`/api/admin/employees/${e.id}`, { headers })).status()).toBe(200);
+    expect((await request.delete(`/api/admin/employees/${e.id}`, { headers })).status()).toBe(404);
+    expect((await request.post(`/api/admin/employees/${e.id}/points`, { headers, data: { delta: 1 } })).status()).toBe(404);
+  });
 });
 
 test.describe('Zone import API keeps QR secrets', () => {

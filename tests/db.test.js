@@ -292,3 +292,61 @@ test('more points always outranks an earlier claim time', () => {
   assert.equal(board[0].name, 'TwoPts'); // points beat time
   assert.equal(board[0].points, 2 * (db.SOLVE_POINTS + db.FIRST_BONUS)); // 2 puzzles, both first-solves
 });
+
+test('adjustPoints adds and subtracts on top of claim points, and stacks', () => {
+  db.resetGame({ keepZones: false });
+  const e = db.createEmployee('Adjusted');
+  const z = db.createZone({ name: 'Adj', hint: '', polygon: POLY });
+  db.claimZone(z.id, e.id);
+  const earned = db.SOLVE_POINTS + db.FIRST_BONUS;
+  const points = () => db.leaderboard().find((r) => r.id === e.id).points;
+
+  db.adjustPoints(e.id, 5);
+  assert.equal(points(), earned + 5);
+  db.adjustPoints(e.id, -3);
+  assert.equal(points(), earned + 2); // adjustments accumulate
+
+  // Later claims still add on top of the adjustment.
+  const z2 = db.createZone({ name: 'Adj2', hint: '', polygon: POLY });
+  db.claimZone(z2.id, e.id);
+  assert.equal(points(), 2 * earned + 2);
+});
+
+test('an adjustment counts for an employee with no claims and can reorder the board', () => {
+  db.resetGame({ keepZones: false });
+  const claimer = db.createEmployee('Claimer');
+  const bonus = db.createEmployee('Bonus');
+  const z = db.createZone({ name: 'Board', hint: '', polygon: POLY });
+  db.claimZone(z.id, claimer.id);
+
+  db.adjustPoints(bonus.id, db.SOLVE_POINTS + db.FIRST_BONUS + 1);
+  const board = db.leaderboard();
+  assert.equal(board[0].name, 'Bonus');
+  assert.equal(board[0].solved, 0);
+});
+
+test('deleteEmployee removes the employee, their claims and adjustments, and passes on the first-solve bonus', () => {
+  db.resetGame({ keepZones: false });
+  const first = db.createEmployee('Gone');
+  const second = db.createEmployee('Stays');
+  const z = db.createZone({ name: 'Del', hint: '', polygon: POLY });
+  db.claimZone(z.id, first.id);
+  db.claimZone(z.id, second.id);
+  db.adjustPoints(first.id, 7);
+
+  assert.equal(db.deleteEmployee(first.id), true);
+  assert.equal(db.getEmployeeByToken(first.token), undefined);
+  assert.deepEqual(db.getZoneClaimers(z.id).map((c) => c.id), [second.id]);
+  assert.equal(db.db.prepare('SELECT COUNT(*) AS n FROM point_adjustments').get().n, 0);
+  // The remaining solver is now first.
+  assert.equal(db.leaderboard()[0].points, db.SOLVE_POINTS + db.FIRST_BONUS);
+
+  assert.equal(db.deleteEmployee(first.id), false); // already gone
+});
+
+test('resetGame also clears point adjustments', () => {
+  const e = db.createEmployee('ResetMe');
+  db.adjustPoints(e.id, 3);
+  db.resetGame();
+  assert.equal(db.db.prepare('SELECT COUNT(*) AS n FROM point_adjustments').get().n, 0);
+});
