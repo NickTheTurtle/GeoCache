@@ -119,7 +119,8 @@ curl -X POST https://<your-domain>/api/admin/zones/import \
 - **`/heist`** serves **a note from "Flabber Gast"** (`src/lib/server/heistNote.js`)
   telling players to use "the machine from the Museum", the Wayback Machine.
 - **`/heist72`** serves the heist maze (`src/lib/server/maze.js`) so the Wayback
-  Machine can capture it. Players go from the Entrance to the Target (a bullseye near the middle) with an
+  Machine can capture it. Players go from the Entrance to the Target (a bullseye near the middle; a perfect
+  run takes about 40 arrow presses, `TARGET_PRESSES`) with an
   on-screen arrow pad; reaching the Target shows "Target acquired!", Flabber Geese's closing lines,
   and a **Claim Reward** button (a native `<details>`, no JavaScript) that reveals
   the QR code in `assets/maze-prize.png`, inlined into the page. A 5:00 countdown

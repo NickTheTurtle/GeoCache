@@ -16,6 +16,8 @@ import {
   countdown,
   centralCells,
   LAYOUT_VERSION,
+  solutionPresses,
+  TARGET_PRESSES,
   DEFAULT_IMAGE,
 } from '../src/lib/server/maze.js';
 
@@ -27,11 +29,11 @@ test('parseSize handles square, WxH, clamping and junk', () => {
   assert.deepEqual(parseSize('big'), { w: 18, h: 18 });
 });
 
-test('the first half of the route is full of real dead ends', () => {
+test('the early part of the route still offers real wrong turns', () => {
   for (const seed of ['geocache', 'a', 'b', 'c']) {
     const { branches, deep } = earlyBranches(buildMaze({ seed }));
-    assert.ok(branches >= 12, `${seed}: ${branches} early branches`);
-    assert.ok(deep >= 6, `${seed}: ${deep} early dead ends`);
+    assert.ok(branches >= 8, `${seed}: ${branches} early branches`);
+    assert.ok(deep >= 3, `${seed}: ${deep} early dead ends`);
   }
 });
 
@@ -164,7 +166,7 @@ test('countdown: 5:00 timer CSS with a lock at 0:00 and a pause on win', () => {
   assert.doesNotMatch(page, /<script/i);
 });
 
-test('the Target sits in the middle, off a long route, and slides never skip it', () => {
+test('the Target sits in the middle, about 40 presses away, and slides never skip it', () => {
   for (const seed of ['geocache', 'a', 'b', 'c', 'd']) {
     for (const [w, h] of [[18, 18], [8, 8], [9, 7]]) {
       const maze = buildMaze({ seed, w, h });
@@ -172,7 +174,8 @@ test('the Target sits in the middle, off a long route, and slides never skip it'
       assert.ok(centralCells(w, h).includes(exit), `${seed} ${w}x${h}: Target is central`);
       assert.equal(route.at(-1), exit);
       if (w === 18) {
-        assert.ok(route.length >= 81, `${seed}: route to the middle is ${route.length} squares`);
+        const p = solutionPresses(maze);
+        assert.ok(Math.abs(p - 40) <= 4, `${seed}: a perfect run is ${p} presses`);
         assert.equal(passages(open, exit, w, h).length, 1, `${seed}: Target is a dead-end vault`);
       }
       // From every square, in every open direction, a slide stops on the Target
@@ -196,4 +199,20 @@ test('the layout version is part of the seed, so bumping it regenerates the maze
   // Same seed text as a v1 key would produce different codes than the v2 build.
   assert.notDeepEqual(makeCodes('same', 18 * 18).id, a.codes.id);
   assert.deepEqual(makeCodes(`same/v${LAYOUT_VERSION}`, 18 * 18).id, a.codes.id);
+});
+
+test('solutionPresses counts a slide as one press, and buildMaze aims for the requested count', () => {
+  const N = 1, E = 2, S = 4, W = 8;
+  // 5x1 strip 0-1-2-3-4 with a side opening south of 3 (into a 5x2 grid), Target at 8.
+  const w = 5;
+  const open = [E, E | W, E | W, E | W | S, W, 0, 0, 0, N, 0];
+  assert.equal(solutionPresses({ w, open, path: [0, 1, 2, 3, 8], exit: 8 }), 2); // slide to 3, then down
+
+  const within = (seed, presses) => Math.abs(solutionPresses(buildMaze({ seed, presses })) - presses);
+  let hits = 0;
+  for (const seed of ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']) if (within(seed, 40) <= 2) hits++;
+  assert.ok(hits >= 4, `${hits}/6 seeds within 2 presses of 40`);
+  assert.equal(TARGET_PRESSES, 40);
+  const longer = ['p1', 'p2', 'p3'].map((seed) => solutionPresses(buildMaze({ seed, presses: 60 })));
+  assert.ok(longer.every((p) => p > 50), `presses: 60 gives longer runs (${longer})`);
 });

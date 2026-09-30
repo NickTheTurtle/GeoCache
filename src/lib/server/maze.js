@@ -240,17 +240,34 @@ export function layoutCandidates(key, w, h) {
   });
 }
 
-// Build the maze model. Deterministic for a given (seed, w, h). The Target is in
-// the middle, which a direct route can reach quickly, so of a fixed set of
-// candidate layouts keep those whose route covers at least a quarter of the grid
-// (81 squares at 18x18), then pick the one with the most real dead ends branching
-// off early (ties go to the longer route).
-export function buildMaze({ seed = 'geocache', w = 18, h = 18 } = {}) {
+// Arrow presses a perfect run takes from the Entrance to the Target, counting a
+// slide along a corridor as one press (see slideTarget).
+export function solutionPresses({ w, open, path, exit }) {
+  const dirOf = { [-w]: N, [w]: S, [-1]: W, [1]: E };
+  let k = 0;
+  let presses = 0;
+  while (path[k] !== exit) {
+    const from = path[k];
+    k = path.indexOf(slideTarget(open, from, dirOf[path[k + 1] - from], w, exit));
+    presses++;
+  }
+  return presses;
+}
+
+// How many arrow presses a perfect run should take by default.
+export const TARGET_PRESSES = 40;
+
+// Build the maze model. Deterministic for a given (seed, w, h, presses). The
+// Target is in the middle. Of a fixed set of candidate layouts, keep those whose
+// perfect run is within 2 presses of `presses` (or the closest one if none are),
+// then pick the closest, breaking ties by the most real dead ends branching off
+// early.
+export function buildMaze({ seed = 'geocache', w = 18, h = 18, presses = TARGET_PRESSES } = {}) {
   const key = `${seed}/v${LAYOUT_VERSION}`;
-  const all = layoutCandidates(key, w, h);
-  const long = all.filter(({ maze }) => maze.path.length >= Math.round((w * h) / 4));
-  const best = (long.length ? long : all).reduce((a, b) =>
-    b.deep > a.deep || (b.deep === a.deep && b.maze.path.length > a.maze.path.length) ? b : a
+  const all = layoutCandidates(key, w, h).map((c) => ({ ...c, off: Math.abs(solutionPresses(c.maze) - presses) }));
+  const near = all.filter((c) => c.off <= 2);
+  const best = (near.length ? near : all).reduce((a, b) =>
+    b.off < a.off || (b.off === a.off && b.deep > a.deep) ? b : a
   );
   return { ...best.maze, codes: makeCodes(key, w * h) };
 }
