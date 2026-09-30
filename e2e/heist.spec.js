@@ -19,7 +19,7 @@ test.describe('Heist note (JavaScript disabled)', () => {
       await expect(note).toContainText('I TOLD you to be on time.');
       await expect(note).toContainText('Use that machine and come back here ON TIME.');
       await expect(note.locator('.sig strong')).toHaveText('Flabber Geese');
-      await expect(note.locator('.sig span')).toHaveText('September 29th');
+      await expect(note.locator('.sig span')).toHaveText('September 30th');
       await expect(note).not.toContainText('Flabber Gast');
 
       // None of the maze is left on the live page.
